@@ -36,6 +36,7 @@ export enum Network {
   ZKEVM = 1101,
   AVALANCHE = 43114,
   FANTOM = 250,
+  FANTOM_TEST = 4002,
   ARBITRUM = 42161,
   OPTIMISM = 10,
   BASE = 8453,

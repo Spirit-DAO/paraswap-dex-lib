@@ -476,6 +476,14 @@ export const Tokens: {
       address: '0x21be370d5312f44cb42ce377bc9b8a0cef1a4c83',
       decimals: 18,
     },
+    SPIRIT: {
+      address: '0x5Cc61A78F164885776AA610fb0FE1257df78E59B',
+      decimals: 18,
+    },
+    LZUSDC: {
+      address: '0x28a92dde19D9989F39A49905d7C9C2FAc7799bDf',
+      decimals: 18,
+    },
     DAI: {
       address: '0x8d11ec38a3eb5e956b052f67da8bdc9bef8abf3e',
       decimals: 18,
@@ -510,10 +518,6 @@ export const Tokens: {
     },
     WETH: {
       address: '0x74b23882a30290451A17c44f4F05243b6b58C76d',
-      decimals: 18,
-    },
-    SPIRIT: {
-      address: '0x5cc61a78f164885776aa610fb0fe1257df78e59b',
       decimals: 18,
     },
     wBOMB: {

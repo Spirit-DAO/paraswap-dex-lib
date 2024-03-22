@@ -388,7 +388,7 @@ describe('QuickSwap', () => {
         network,
       );
       describe('SpiritSwapV3', () => {
-        const dexKey = 'SpiritSwapV3';
+        const dexKey = 'SpiritswapV3';
 
         const sideToContractMethods = new Map([
           [
