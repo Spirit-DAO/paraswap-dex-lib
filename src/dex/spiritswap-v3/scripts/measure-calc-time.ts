@@ -10,7 +10,7 @@ import { DeepReadonly } from 'ts-essentials';
 dotenv.config();
 import { Network, SwapSide } from '../../../constants';
 import { DummyDexHelper } from '../../../dex-helper';
-import { uniswapV3Math } from '../contract-math/uniswap-v3-math';
+import { uniswapV3Math } from '../contract-math/spiritswap-v3-math';
 import { PoolState } from '../types';
 import { UniswapV3 } from '../spiritswap-v3';
 

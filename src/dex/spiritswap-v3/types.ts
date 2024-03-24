@@ -8,7 +8,6 @@ import { SpiritswapV3EventPool } from './spiritswap-v3-pool';
 export type OracleObservation = {
   blockTimestamp: bigint;
   tickCumulative: bigint;
-  secondsPerLiquidityCumulativeX128: bigint;
   initialized: boolean;
 };
 
@@ -18,12 +17,12 @@ export type OracleObservationCandidates = {
 };
 
 export type TickInfo = {
-  liquidityGross: bigint;
-  liquidityNet: bigint;
-  tickCumulativeOutside: bigint;
-  secondsPerLiquidityOutsideX128: bigint;
-  secondsOutside: bigint;
-  initialized: boolean;
+  liquidityTotal: bigint;
+  liquidityDelta: bigint;
+  prevTick: bigint;
+  nextTick: bigint;
+  outerFeeGrowth0Token: bigint;
+  outerFeeGrowth1Token: bigint;
 };
 
 export type Slot0 = {
@@ -39,7 +38,6 @@ export type PoolState = {
   pool: string;
   blockTimestamp: bigint;
   tickSpacing: bigint;
-  fee: bigint;
   slot0: Slot0;
   liquidity: bigint;
   maxLiquidityPerTick: bigint;
@@ -52,6 +50,8 @@ export type PoolState = {
   highestKnownTick: bigint;
   balance0: bigint;
   balance1: bigint;
+  totalFeeGrowth0Token: bigint;
+  totalFeeGrowth1Token: bigint;
 };
 
 export type FactoryState = Record<string, never>;
@@ -74,6 +74,7 @@ export type DexParams = {
   router: Address;
   quoter: Address;
   factory: Address;
+  poolDeloyer: Address;
   stateMulticall: Address;
   uniswapMulticall: Address;
   supportedFees: bigint[];
@@ -188,4 +189,5 @@ export type DecodedStateMultiCallResultWithRelativeBitmaps = {
   };
   tickBitmap: TickBitMapMappingsWithBigNumber[];
   ticks: TickInfoMappingsWithBigNumber[];
+  tick: bigint;
 };

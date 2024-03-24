@@ -2,19 +2,17 @@ import { PoolState, TickInfo } from '../types';
 import { LiquidityMath } from './LiquidityMath';
 import { _require } from '../../../utils';
 import { NumberAsString } from '@paraswap/core';
-import { ZERO_TICK_INFO } from '../constants';
+import { MAX_LIQUIDITY_PER_TICK, ZERO_TICK_INFO } from '../constants';
 
 export class Tick {
   static update(
     state: Pick<PoolState, 'ticks'>,
     tick: bigint,
-    tickCurrent: bigint,
+    currentTick: bigint,
     liquidityDelta: bigint,
-    secondsPerLiquidityCumulativeX128: bigint,
-    tickCumulative: bigint,
-    time: bigint,
+    totalFeeGrowth0Token: bigint,
+    totalFeeGrowth1Token: bigint,
     upper: boolean,
-    maxLiquidity: bigint,
   ): boolean {
     let info = state.ticks[Number(tick)];
 
@@ -23,41 +21,38 @@ export class Tick {
       state.ticks[Number(tick)] = info;
     }
 
-    const liquidityGrossBefore = info.liquidityGross;
-    const liquidityGrossAfter = LiquidityMath.addDelta(
-      liquidityGrossBefore,
+    const liquidityTotalBefore = info.liquidityTotal;
+    const liquidityTotalAfter = LiquidityMath.addDelta(
+      liquidityTotalBefore,
       liquidityDelta,
     );
 
     _require(
-      liquidityGrossAfter <= maxLiquidity,
+      liquidityTotalAfter <= MAX_LIQUIDITY_PER_TICK,
       'LO',
-      { liquidityGrossAfter, maxLiquidity },
-      'liquidityGrossAfter <= maxLiquidity',
+      { liquidityTotalAfter, MAX_LIQUIDITY_PER_TICK },
+      'liquidityTotalAfter <= MAX_LIQUIDITY_PER_TICK',
     );
 
-    const flipped = (liquidityGrossAfter == 0n) != (liquidityGrossBefore == 0n);
+    const liquidityDeltaBefore = info.liquidityDelta;
+    // when the lower (upper) tick is crossed left to right (right to left), liquidity must be added (removed)
 
-    if (liquidityGrossBefore == 0n) {
-      if (tick <= tickCurrent) {
-        info.secondsPerLiquidityOutsideX128 = secondsPerLiquidityCumulativeX128;
-        info.tickCumulativeOutside = tickCumulative;
-        info.secondsOutside = time;
+    info.liquidityDelta = upper
+      ? liquidityDeltaBefore - liquidityDelta
+      : liquidityDeltaBefore + liquidityDelta;
+
+    info.liquidityTotal = liquidityTotalAfter;
+
+    let flipped = liquidityTotalAfter == 0n;
+    if (liquidityTotalBefore == 0n) {
+      flipped = !flipped;
+      // by convention, we assume that all growth before a tick was initialized happened _below_ the tick
+      if (tick <= currentTick) {
+        info.outerFeeGrowth0Token = totalFeeGrowth0Token;
+        info.outerFeeGrowth1Token = totalFeeGrowth1Token;
       }
-      info.initialized = true;
     }
 
-    info.liquidityGross = liquidityGrossAfter;
-
-    info.liquidityNet = upper
-      ? BigInt.asIntN(
-          128,
-          BigInt.asIntN(256, info.liquidityNet) - liquidityDelta,
-        )
-      : BigInt.asIntN(
-          128,
-          BigInt.asIntN(256, info.liquidityNet) + liquidityDelta,
-        );
     return flipped;
   }
 
@@ -68,15 +63,14 @@ export class Tick {
   static cross(
     ticks: Record<NumberAsString, TickInfo>,
     tick: bigint,
-    secondsPerLiquidityCumulativeX128: bigint,
-    tickCumulative: bigint,
-    time: bigint,
-  ): bigint {
+    feeGrowth0: bigint,
+    feeGrowth1: bigint,
+  ): [bigint, bigint, bigint] {
     const info = ticks[Number(tick)];
-    info.secondsPerLiquidityOutsideX128 =
-      secondsPerLiquidityCumulativeX128 - info.secondsPerLiquidityOutsideX128;
-    info.tickCumulativeOutside = tickCumulative - info.tickCumulativeOutside;
-    info.secondsOutside = time - info.secondsOutside;
-    return info.liquidityNet;
+
+    info.outerFeeGrowth1Token = feeGrowth1 - info.outerFeeGrowth1Token;
+    info.outerFeeGrowth0Token = feeGrowth0 - info.outerFeeGrowth0Token;
+
+    return [info.liquidityDelta, info.prevTick, info.nextTick];
   }
 }

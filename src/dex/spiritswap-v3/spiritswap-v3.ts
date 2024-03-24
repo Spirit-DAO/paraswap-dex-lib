@@ -54,7 +54,7 @@ import {
   UNISWAPV3_TICK_GAS_COST,
 } from './constants';
 import { assert, DeepReadonly } from 'ts-essentials';
-import { uniswapV3Math } from './contract-math/uniswap-v3-math';
+import { uniswapV3Math } from './contract-math/spiritswap-v3-math';
 import { Contract } from 'web3-eth-contract';
 import { AbiItem } from 'web3-utils';
 import { BalanceRequest, getBalances } from '../../lib/tokens/balancer-fetcher';
@@ -153,9 +153,9 @@ export class SpiritSwapV3
     return this.adapters[side] ? this.adapters[side] : null;
   }
 
-  getPoolIdentifier(srcAddress: Address, destAddress: Address, fee: bigint) {
+  getPoolIdentifier(srcAddress: Address, destAddress: Address) {
     const tokenAddresses = this._sortTokens(srcAddress, destAddress).join('_');
-    return `${this.dexKey}_${tokenAddresses}_${fee}`;
+    return `${this.dexKey}_${tokenAddresses}`;
   }
 
   async initializePricing(blockNumber: number) {
@@ -166,11 +166,7 @@ export class SpiritSwapV3
     // FETCH_POOL_INDENTIFIER_TIMEOUT range
     await Promise.all(
       this.poolsToPreload.map(async pool =>
-        Promise.all(
-          this.config.supportedFees.map(async fee =>
-            this.getPool(pool.token0, pool.token1, fee, blockNumber),
-          ),
-        ),
+            this.getPool(pool.token0, pool.token1, blockNumber),
       ),
     );
 
@@ -203,12 +199,12 @@ export class SpiritSwapV3
   }) => {
     const logPrefix = '[onPoolCreatedDeleteFromNonExistingSet]';
     const [_token0, _token1] = this._sortTokens(token0, token1);
-    const poolKey = `${_token0}_${_token1}_${fee}`;
+    const poolKey = `${_token0}_${_token1}`;
 
     // consider doing it only from master pool for less calls to distant cache
 
     // delete entry locally to let local instance discover the pool
-    delete this.eventPools[this.getPoolIdentifier(_token0, _token1, fee)];
+    delete this.eventPools[this.getPoolIdentifier(_token0, _token1)];
 
     try {
       this.logger.info(
@@ -233,11 +229,10 @@ export class SpiritSwapV3
   async getPool(
     srcAddress: Address,
     destAddress: Address,
-    fee: bigint,
     blockNumber: number,
   ): Promise<SpiritswapV3EventPool | null> {
     let pool = this.eventPools[
-      this.getPoolIdentifier(srcAddress, destAddress, fee)
+      this.getPoolIdentifier(srcAddress, destAddress)
     ] as SpiritswapV3EventPool | null | undefined;
 
     if (pool === null) return null;
@@ -259,7 +254,7 @@ export class SpiritSwapV3
 
     const [token0, token1] = this._sortTokens(srcAddress, destAddress);
 
-    const key = `${token0}_${token1}_${fee}`.toLowerCase();
+    const key = `${token0}_${token1}`.toLowerCase();
 
     if (!pool) {
       const notExistingPoolScore = await this.dexHelper.cache.zscore(
@@ -270,7 +265,7 @@ export class SpiritSwapV3
       const poolDoesNotExist = notExistingPoolScore !== null;
 
       if (poolDoesNotExist) {
-        this.eventPools[this.getPoolIdentifier(srcAddress, destAddress, fee)] =
+        this.eventPools[this.getPoolIdentifier(srcAddress, destAddress)] =
           null;
         return null;
       }
@@ -281,7 +276,6 @@ export class SpiritSwapV3
         JSON.stringify({
           token0,
           token1,
-          fee: fee.toString(),
         }),
       );
     }
@@ -300,7 +294,7 @@ export class SpiritSwapV3
         this.config.decodeStateMultiCallResultWithRelativeBitmaps,
         this.erc20Interface,
         this.config.factory,
-        fee,
+        this.config.poolDeloyer,
         token0,
         token1,
         this.logger,
@@ -331,14 +325,14 @@ export class SpiritSwapV3
         // to prevent more requests for this pool
         pool = null;
         this.logger.trace(
-          `${this.dexHelper}: Pool: srcAddress=${srcAddress}, destAddress=${destAddress}, fee=${fee} not found`,
+          `${this.dexHelper}: Pool: srcAddress=${srcAddress}, destAddress=${destAddress} not found`,
           e,
         );
       } else {
         // on unknown error mark as failed and increase retryCount for retry init strategy
         // note: state would be null by default which allows to fallback
         this.logger.warn(
-          `${this.dexKey}: Can not generate pool state for srcAddress=${srcAddress}, destAddress=${destAddress}, fee=${fee} pool fallback to rpc and retry every ${this.config.initRetryFrequency} times, initRetryAttemptCount=${pool.initRetryAttemptCount}`,
+          `${this.dexKey}: Can not generate pool state for srcAddress=${srcAddress}, destAddress=${destAddress} pool fallback to rpc and retry every ${this.config.initRetryFrequency} times, initRetryAttemptCount=${pool.initRetryAttemptCount}`,
           e,
         );
         pool.initFailed = true;
@@ -361,7 +355,7 @@ export class SpiritSwapV3
       );
     }
 
-    this.eventPools[this.getPoolIdentifier(srcAddress, destAddress, fee)] =
+    this.eventPools[this.getPoolIdentifier(srcAddress, destAddress)] =
       pool;
     return pool;
   }
@@ -380,7 +374,6 @@ export class SpiritSwapV3
     const pool = await this.getPool(
       poolInfo.token0,
       poolInfo.token1,
-      BigInt(poolInfo.fee),
       blockNumber,
     );
 
@@ -404,22 +397,16 @@ export class SpiritSwapV3
       _srcToken,
       _destToken,
     );
+      
+      console.log('getPoolIdentitfer');
 
     if (_srcAddress === _destAddress) return [];
 
-    const pools = (
-      await Promise.all(
-        this.supportedFees.map(async fee =>
-          this.getPool(_srcAddress, _destAddress, fee, blockNumber),
-        ),
-      )
-    ).filter(pool => pool);
+    const pool = await this.getPool(_srcAddress, _destAddress, blockNumber)
 
-    if (pools.length === 0) return [];
+    if (!pool) return [];
 
-    return pools.map(pool =>
-      this.getPoolIdentifier(_srcAddress, _destAddress, pool!.feeCode),
-    );
+    return [this.getPoolIdentifier(_srcAddress, _destAddress)]
   }
 
   async getPricingFromRpc(
@@ -449,8 +436,14 @@ export class SpiritSwapV3
       }),
       [],
     );
+      
+      console.log('requests', requests);
 
-    const balances = await getBalances(this.dexHelper.multiWrapper, requests);
+      const balances = await getBalances(this.dexHelper.multiWrapper, requests);
+      
+      console.log('balances', balances);
+      console.log('amounts', amounts);
+
 
     pools = pools.filter((pool, index) => {
       const balance = balances[index].amounts[DEFAULT_ID_ERC20_AS_STRING];
@@ -494,7 +487,6 @@ export class SpiritSwapV3
                   from.address,
                   to.address,
                   _amount.toString(),
-                  pool.feeCodeAsString,
                   0, //sqrtPriceLimitX96
                 ],
               ])
@@ -503,7 +495,6 @@ export class SpiritSwapV3
                   from.address,
                   to.address,
                   _amount.toString(),
-                  pool.feeCodeAsString,
                   0, //sqrtPriceLimitX96
                 ],
               ]),
@@ -545,8 +536,7 @@ export class SpiritSwapV3
             {
               tokenIn: from.address,
               tokenOut: to.address,
-              fee: pool.feeCodeAsString,
-              currentFee: states[index]?.fee.toString(),
+              fee: '2',
             },
           ],
           exchange: pool.poolAddress,
@@ -554,7 +544,6 @@ export class SpiritSwapV3
         poolIdentifier: this.getPoolIdentifier(
           pool.token0,
           pool.token1,
-          pool.feeCode,
         ),
         exchange: this.dexKey,
         gasCost: prices.map(p => (p === 0n ? 0 : UNISWAPV3_QUOTE_GASLIMIT)),
@@ -586,20 +575,21 @@ export class SpiritSwapV3
 
       let selectedPools: SpiritswapV3EventPool[] = [];
 
-      if (!limitPools) {
+        console.log('f4eferge');
+        if (!limitPools) {
+            console.log('eeeeee');
         selectedPools = (
           await Promise.all(
             this.supportedFees.map(async fee => {
               const locallyFoundPool =
                 this.eventPools[
-                  this.getPoolIdentifier(_srcAddress, _destAddress, fee)
+                  this.getPoolIdentifier(_srcAddress, _destAddress)
                 ];
               if (locallyFoundPool) return locallyFoundPool;
 
               const newlyFetchedPool = await this.getPool(
                 _srcAddress,
                 _destAddress,
-                fee,
                 blockNumber,
               );
               return newlyFetchedPool;
@@ -610,14 +600,16 @@ export class SpiritSwapV3
         const pairIdentifierWithoutFee = this.getPoolIdentifier(
           _srcAddress,
           _destAddress,
-          0n,
           // Trim from 0 fee postfix, so it become comparable
-        ).slice(0, -1);
+        );
 
+        console.log('çoucou toi');
+            
         const poolIdentifiers = limitPools.filter(identifier =>
           identifier.startsWith(pairIdentifierWithoutFee),
         );
 
+        console.log('yo le ou toi');
         selectedPools = (
           await Promise.all(
             poolIdentifiers.map(async identifier => {
@@ -628,7 +620,6 @@ export class SpiritSwapV3
               const newlyFetchedPool = await this.getPool(
                 srcAddress,
                 destAddress,
-                BigInt(fee),
                 blockNumber,
               );
               return newlyFetchedPool;
@@ -741,15 +732,13 @@ export class SpiritSwapV3
                 {
                   tokenIn: _srcAddress,
                   tokenOut: _destAddress,
-                  fee: pool.feeCode.toString(),
-                  currentFee: state.fee.toString(),
+                  fee: '1',
                 },
               ],
             },
             poolIdentifier: this.getPoolIdentifier(
               pool.token0,
               pool.token1,
-              pool.feeCode,
             ),
             exchange: this.dexKey,
             gasCost: gasCost,
@@ -1096,7 +1085,7 @@ export class SpiritSwapV3
     const pools = await Promise.all(
       poolIdentifiers.map(async identifier => {
         const [, srcAddress, destAddress, fee] = identifier.split('_');
-        return this.getPool(srcAddress, destAddress, BigInt(fee), blockNumber);
+        return this.getPool(srcAddress, destAddress, blockNumber);
       }),
     );
     return pools.filter(pool => pool) as SpiritswapV3EventPool[];
@@ -1116,6 +1105,7 @@ export class SpiritSwapV3
       router: this.config.router.toLowerCase(),
       quoter: this.config.quoter.toLowerCase(),
       factory: this.config.factory.toLowerCase(),
+      poolDeloyer: this.config.poolDeloyer.toLowerCase(),
       supportedFees: this.config.supportedFees,
       stateMulticall: this.config.stateMulticall.toLowerCase(),
       chunksCount: this.config.chunksCount,

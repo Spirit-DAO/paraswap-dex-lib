@@ -16,7 +16,7 @@ import {
 } from './types';
 import SpiritswapV3PoolABI from '../../abi/spiritswap-v3/SpiritswapV3Pool.abi.json';
 import { bigIntify, catchParseLogError, isSampled } from '../../utils';
-import { uniswapV3Math } from './contract-math/uniswap-v3-math';
+import { uniswapV3Math } from './contract-math/spiritswap-v3-math';
 import { MultiCallParams } from '../../lib/multi-wrapper';
 import {
   OUT_OF_RANGE_ERROR_POSTFIX,
@@ -55,8 +55,6 @@ export class SpiritswapV3EventPool extends StatefulEventSubscriber<PoolState> {
   public initFailed = false;
   public initRetryAttemptCount = 0;
 
-  public feeCodeAsString;
-
   constructor(
     readonly dexHelper: IDexHelper,
     parentName: string,
@@ -66,22 +64,14 @@ export class SpiritswapV3EventPool extends StatefulEventSubscriber<PoolState> {
       | undefined,
     readonly erc20Interface: Interface,
     protected readonly factoryAddress: Address,
-    public feeCode: bigint,
+    protected readonly poolDeployerAddress: Address,
     token0: Address,
     token1: Address,
     logger: Logger,
     mapKey: string = '',
     readonly poolInitCodeHash: string,
   ) {
-    super(
-      parentName,
-      `${token0}_${token1}_${feeCode}`,
-      dexHelper,
-      logger,
-      true,
-      mapKey,
-    );
-    this.feeCodeAsString = feeCode.toString();
+    super(parentName, `${token0}_${token1}`, dexHelper, logger, true, mapKey);
     this.token0 = token0.toLowerCase();
     this.token1 = token1.toLowerCase();
     this.logDecoder = (log: Log) => this.poolIface.parseLog(log);
@@ -104,11 +94,7 @@ export class SpiritswapV3EventPool extends StatefulEventSubscriber<PoolState> {
 
   get poolAddress() {
     if (this._poolAddress === undefined) {
-      this._poolAddress = this._computePoolAddress(
-        this.token0,
-        this.token1,
-        this.feeCode,
-      );
+      this._poolAddress = this._computePoolAddress(this.token0, this.token1);
     }
     return this._poolAddress;
   }
@@ -219,21 +205,22 @@ export class SpiritswapV3EventPool extends StatefulEventSubscriber<PoolState> {
           decodeFunction: uint256ToBigInt,
         },
         {
-          target: this.stateMultiContract.options.address,
-          callData: this.stateMultiContract.methods
-            .getFullStateWithRelativeBitmaps(
-              this.factoryAddress,
-              this.token0,
-              this.token1,
-              this.feeCode,
-              this.getBitmapRangeToRequest(),
-              this.getBitmapRangeToRequest(),
-            )
-            .encodeABI(),
+          target: this.poolAddress,
+          callData: this.poolIface.encodeFunctionData('safelyGetStateOfAMM'),
           decodeFunction:
             this.decodeStateMultiCallResultWithRelativeBitmaps !== undefined
               ? this.decodeStateMultiCallResultWithRelativeBitmaps
               : decodeStateMultiCallResultWithRelativeBitmaps,
+        },
+        {
+          target: this.poolAddress,
+          callData: this.poolIface.encodeFunctionData('totalFeeGrowth0Token'),
+          decodeFunction: uint256ToBigInt,
+        },
+        {
+          target: this.poolAddress,
+          callData: this.poolIface.encodeFunctionData('totalFeeGrowth1Token'),
+          decodeFunction: uint256ToBigInt,
         },
       ];
 
@@ -249,7 +236,7 @@ export class SpiritswapV3EventPool extends StatefulEventSubscriber<PoolState> {
   async generateState(blockNumber: number): Promise<Readonly<PoolState>> {
     const callData = this._getStateRequestCallData();
 
-    const [resBalance0, resBalance1, resState] =
+    const [resBalance0, resBalance1, resState, resTotalFees0, resTotalFees1] =
       await this.dexHelper.multiWrapper.tryAggregate<
         bigint | DecodedStateMultiCallResultWithRelativeBitmaps
       >(
@@ -264,12 +251,24 @@ export class SpiritswapV3EventPool extends StatefulEventSubscriber<PoolState> {
     // I think UniswapV3 callbacks subscriptions are complexified for no reason.
     // Need to be revisited later
     assert(resState.success, 'Pool does not exist');
+    console.log('resState', resState);
 
-    const [balance0, balance1, _state] = [
+    const [balance0, balance1, _state, totalFees0, totalFees1] = [
       resBalance0.returnData,
       resBalance1.returnData,
       resState.returnData,
-    ] as [bigint, bigint, DecodedStateMultiCallResultWithRelativeBitmaps];
+      resTotalFees0.returnData,
+      resTotalFees1.returnData,
+    ] as [
+      bigint,
+      bigint,
+      DecodedStateMultiCallResultWithRelativeBitmaps,
+      bigint,
+      bigint,
+    ];
+
+    console.log('totalFees0', totalFees0);
+    console.log('totalFees1', totalFees1);
 
     const tickBitmap = {};
     const ticks = {};
@@ -281,14 +280,11 @@ export class SpiritswapV3EventPool extends StatefulEventSubscriber<PoolState> {
       [_state.slot0.observationIndex]: {
         blockTimestamp: bigIntify(_state.observation.blockTimestamp),
         tickCumulative: bigIntify(_state.observation.tickCumulative),
-        secondsPerLiquidityCumulativeX128: bigIntify(
-          _state.observation.secondsPerLiquidityCumulativeX128,
-        ),
         initialized: _state.observation.initialized,
       },
     };
 
-    const currentTick = bigIntify(_state.slot0.tick);
+    const currentTick = bigIntify(_state.tick);
     const tickSpacing = bigIntify(_state.tickSpacing);
 
     const startTickBitmap = TickBitMap.position(currentTick / tickSpacing)[0];
@@ -306,7 +302,6 @@ export class SpiritswapV3EventPool extends StatefulEventSubscriber<PoolState> {
         feeProtocol: bigIntify(_state.slot0.feeProtocol),
       },
       liquidity: bigIntify(_state.liquidity),
-      fee: this.feeCode,
       tickSpacing,
       maxLiquidityPerTick: bigIntify(_state.maxLiquidityPerTick),
       tickBitmap,
@@ -323,6 +318,8 @@ export class SpiritswapV3EventPool extends StatefulEventSubscriber<PoolState> {
         tickSpacing,
       balance0,
       balance1,
+      totalFeeGrowth0Token: totalFees0,
+      totalFeeGrowth1Token: totalFees1,
     };
   }
 
@@ -495,25 +492,25 @@ export class SpiritswapV3EventPool extends StatefulEventSubscriber<PoolState> {
     return pool;
   }
 
-  private _computePoolAddress(
-    token0: Address,
-    token1: Address,
-    fee: bigint,
-  ): Address {
+  private _computePoolAddress(token0: Address, token1: Address): Address {
     // https://github.com/Uniswap/v3-periphery/blob/main/contracts/libraries/PoolAddress.sol
     if (token0 > token1) [token0, token1] = [token1, token0];
 
     const encodedKey = ethers.utils.keccak256(
       ethers.utils.defaultAbiCoder.encode(
-        ['address', 'address', 'uint24'],
-        [token0, token1, BigInt.asUintN(24, fee)],
+        ['address', 'address'],
+        [token0, token1],
       ),
     );
 
-    return ethers.utils.getCreate2Address(
-      this.factoryAddress,
+    const addy = ethers.utils.getCreate2Address(
+      this.poolDeployerAddress,
       encodedKey,
       this.poolInitCodeHash,
     );
+
+    console.log('ddy', token0, token1, addy);
+
+    return addy;
   }
 }

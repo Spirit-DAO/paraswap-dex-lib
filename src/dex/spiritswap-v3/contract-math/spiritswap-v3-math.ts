@@ -30,6 +30,8 @@ export type PriceComputationState = {
   protocolFee: bigint;
   liquidity: bigint;
   isFirstCycleState: boolean;
+  totalFeeGrowth0Token: bigint;
+  totalFeeGrowth1Token: bigint;
 };
 
 export type PriceComputationCache = {
@@ -147,7 +149,7 @@ function _priceComputationCycles(
         : step.sqrtPriceNextX96,
       state.liquidity,
       state.amountSpecifiedRemaining,
-      poolState.fee,
+      500n,
     );
 
     state.sqrtPriceX96 = swapStepResult.sqrtRatioNextX96;
@@ -172,20 +174,6 @@ function _priceComputationCycles(
 
     if (state.sqrtPriceX96 === step.sqrtPriceNextX96) {
       if (step.initialized) {
-        if (!cache.computedLatestObservation) {
-          [cache.tickCumulative, cache.secondsPerLiquidityCumulativeX128] =
-            Oracle.observeSingle(
-              poolState,
-              cache.blockTimestamp,
-              0n,
-              slot0Start.tick,
-              slot0Start.observationIndex,
-              cache.liquidityStart,
-              slot0Start.observationCardinality,
-            );
-          cache.computedLatestObservation = true;
-        }
-
         if (state.amountSpecifiedRemaining === 0n) {
           const castTickNext = Number(step.tickNext);
           lastTicksCopy = {
@@ -194,12 +182,11 @@ function _priceComputationCycles(
           };
         }
 
-        let liquidityNet = Tick.cross(
+        let [liquidityNet, ,] = Tick.cross(
           ticksCopy,
           step.tickNext,
-          cache.secondsPerLiquidityCumulativeX128,
-          cache.tickCumulative,
-          cache.blockTimestamp,
+          state.totalFeeGrowth0Token,
+          state.totalFeeGrowth1Token,
         );
         if (zeroForOne) liquidityNet = -liquidityNet;
 
@@ -274,6 +261,8 @@ class UniswapV3Math {
       protocolFee: 0n,
       liquidity: cache.liquidityStart,
       isFirstCycleState: true,
+      totalFeeGrowth0Token: poolState.totalFeeGrowth0Token,
+      totalFeeGrowth1Token: poolState.totalFeeGrowth0Token,
     };
 
     let isOutOfRange = false;
@@ -454,33 +443,18 @@ class UniswapV3Math {
           : step.sqrtPriceNextX96,
         state.liquidity,
         state.amountSpecifiedRemaining,
-        poolState.fee,
+        500n,
       );
 
       state.sqrtPriceX96 = swapStepResult.sqrtRatioNextX96;
 
       if (state.sqrtPriceX96 == step.sqrtPriceNextX96) {
-        if (step.initialized) {
-          if (!cache.computedLatestObservation) {
-            [cache.tickCumulative, cache.secondsPerLiquidityCumulativeX128] =
-              Oracle.observeSingle(
-                poolState,
-                cache.blockTimestamp,
-                0n,
-                slot0Start.tick,
-                slot0Start.observationIndex,
-                cache.liquidityStart,
-                slot0Start.observationCardinality,
-              );
-            cache.computedLatestObservation = true;
-          }
-
-          let liquidityNet = Tick.cross(
+        if (step.initialized) {         
+          let [liquidityNet, ,] = Tick.cross(
             poolState.ticks,
             step.tickNext,
-            cache.secondsPerLiquidityCumulativeX128,
-            cache.tickCumulative,
-            cache.blockTimestamp,
+            poolState.totalFeeGrowth0Token,
+            poolState.totalFeeGrowth1Token,
           );
 
           if (zeroForOne) liquidityNet = -liquidityNet;
@@ -618,24 +592,20 @@ class UniswapV3Math {
           tickLower,
           tick,
           liquidityDelta,
-          secondsPerLiquidityCumulativeX128,
-          tickCumulative,
-          time,
+          state.totalFeeGrowth0Token,
+          state.totalFeeGrowth1Token,
           false,
-          state.maxLiquidityPerTick,
         );
       }
       if (this._isTickToProcess(state, tickUpper)) {
         flippedUpper = Tick.update(
-          state,
-          tickUpper,
-          tick,
+            state,
+            tickUpper,
+            tick,
           liquidityDelta,
-          secondsPerLiquidityCumulativeX128,
-          tickCumulative,
-          time,
+          state.totalFeeGrowth0Token,
+          state.totalFeeGrowth1Token,
           true,
-          state.maxLiquidityPerTick,
         );
       }
 

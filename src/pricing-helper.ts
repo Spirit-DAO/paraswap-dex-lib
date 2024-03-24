@@ -196,9 +196,10 @@ export class PricingHelper {
     const dexPoolPrices = await Promise.all(
       dexKeys.map(async key => {
         try {
-          const limitPools = limitPoolsMap ? limitPoolsMap[key] : null;
+            const limitPools = limitPoolsMap ? limitPoolsMap[key] : null;
 
-          if (limitPools && !limitPools.length) return [];
+            if (limitPools && !limitPools.length) return [];
+            
 
           return await new Promise<PoolPrices<any>[] | null>(
             (resolve, reject) => {
@@ -217,6 +218,7 @@ export class PricingHelper {
                 return resolve(null);
               }
 
+              console.log('nonenenoonen');
               dexInstance
                 .getPricesVolume(
                   from,
@@ -227,7 +229,9 @@ export class PricingHelper {
                   limitPools ? limitPools : undefined,
                   transferFees,
                 )
-                .then(poolPrices => {
+                  .then(poolPrices => {
+                    
+                  console.log('coucou');
                   try {
                     if (!poolPrices || !rollupL1ToL2GasRatio) {
                       return resolve(poolPrices);

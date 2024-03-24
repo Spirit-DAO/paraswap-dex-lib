@@ -369,7 +369,8 @@ export async function testE2E(
     );
   }
 
-  try {
+    try {
+        console.log('krjgkrjfkrkf');
     const priceRoute = await paraswap.getPrices(
       srcToken,
       destToken,
