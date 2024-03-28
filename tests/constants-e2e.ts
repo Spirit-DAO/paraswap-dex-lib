@@ -470,6 +470,21 @@ export const Tokens: {
       decimals: 18,
     },
   },
+  [Network.FANTOM_TEST]: {
+    FTM: { address: ETHER_ADDRESS, decimals: 18 },
+    WFTM: {
+      address: '0x21be370d5312f44cb42ce377bc9b8a0cef1a4c83',
+      decimals: 18,
+    },
+    SPIRIT: {
+      address: '0x45E3618f4D7AcdbDc7CDC48Db531f78b6483Ea6F',
+      decimals: 18,
+    },
+    USDC: {
+      address: '0x861338c1b2f4961D6Fc6e07dFEEDd5ded33dceC3',
+      decimals: 18,
+    },
+  },
   [Network.FANTOM]: {
     FTM: { address: ETHER_ADDRESS, decimals: 18 },
     WFTM: {
@@ -482,7 +497,11 @@ export const Tokens: {
     },
     LZUSDC: {
       address: '0x28a92dde19D9989F39A49905d7C9C2FAc7799bDf',
-      decimals: 18,
+      decimals: 6,
+    },
+    AXLUSDC: {
+      address: '0x1B6382DBDEa11d97f24495C9A90b7c88469134a4',
+      decimals: 6,
     },
     DAI: {
       address: '0x8d11ec38a3eb5e956b052f67da8bdc9bef8abf3e',
@@ -1122,6 +1141,12 @@ export const Holders: {
     MAI: '0x9a8cf02f3e56c664ce75e395d0e4f3dc3dafe138',
     SDEX: '0xB0470cF15B22a6A32c49a7C20E3821B944A76058',
   },
+  [Network.FANTOM_TEST]: {
+    SPIRIT: '0x95CF5354519a6ad2bD7e53fe7763201dfB24bFE4',
+    FTM: '0x95CF5354519a6ad2bD7e53fe7763201dfB24bFE4',
+    WFTM: '0x95CF5354519a6ad2bD7e53fe7763201dfB24bFE4',
+    USDC: '0x95CF5354519a6ad2bD7e53fe7763201dfB24bFE4',
+  },
   [Network.FANTOM]: {
     DAI: '0x370f4b2dcf75c94d8d4450b493661a9c6170d0b5',
     FTM: '0x431e81E5dfB5A24541b5Ff8762bDEF3f32F96354',
@@ -1288,6 +1313,7 @@ export const NativeTokenSymbols: { [network: number]: string } = {
   [Network.BSC]: 'BNB',
   [Network.AVALANCHE]: 'AVAX',
   [Network.FANTOM]: 'FTM',
+  [Network.FANTOM_TEST]: 'FTM',
   [Network.ARBITRUM]: 'ETH',
   [Network.OPTIMISM]: 'ETH',
   [Network.BASE]: 'ETH',

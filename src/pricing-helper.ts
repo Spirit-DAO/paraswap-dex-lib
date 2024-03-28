@@ -218,7 +218,6 @@ export class PricingHelper {
                 return resolve(null);
               }
 
-              console.log('nonenenoonen');
               dexInstance
                 .getPricesVolume(
                   from,
@@ -230,8 +229,7 @@ export class PricingHelper {
                   transferFees,
                 )
                   .then(poolPrices => {
-                    
-                  console.log('coucou');
+
                   try {
                     if (!poolPrices || !rollupL1ToL2GasRatio) {
                       return resolve(poolPrices);

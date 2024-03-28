@@ -43,6 +43,9 @@ export const WethConfig: DexConfigMap<DexParams> = {
     [Network.FANTOM]: {
       poolGasCost: WethGasCost,
     },
+    [Network.FANTOM_TEST]: {
+      poolGasCost: WethGasCost,
+    },
   },
   Wavax: {
     [Network.AVALANCHE]: {

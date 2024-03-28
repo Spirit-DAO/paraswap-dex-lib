@@ -63,12 +63,12 @@ export class MultiWrapper {
       const batch = calls.slice(i, i + batchSize);
       allCalls[Math.floor(i / batchSize)] = batch;
     }
-
+	  
     const aggregatedResult = await Promise.all(
-      allCalls.map(batch =>
-        this.multi.methods
-          .tryAggregate(mandatory, batch)
-          .call(undefined, blockNumber),
+		allCalls.map(batch => 
+			this.multi.methods
+				.tryAggregate(mandatory, batch)
+				.call({gas: 12000000}, blockNumber)
       ),
     );
 

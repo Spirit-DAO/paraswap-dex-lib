@@ -1,6 +1,6 @@
 import { Interface } from '@ethersproject/abi';
 import { DeepReadonly } from 'ts-essentials';
-import FactoryABI from '../../abi/spiritswap-v3/SpiritswapV3Factory.abi.json';
+import FactoryABI from '../../abi/algebra/AlgebraFactory-v1_1.abi.json';
 import { IDexHelper } from '../../dex-helper/idex-helper';
 import { StatefulEventSubscriber } from '../../stateful-event-subscriber';
 import { Address, Log, Logger } from '../../types';
@@ -10,18 +10,16 @@ import { FactoryState } from './types';
 export type OnPoolCreatedCallback = ({
   token0,
   token1,
-  fee,
 }: {
   token0: string;
   token1: string;
-  fee: bigint;
 }) => Promise<void>;
 
 /*
  * "Stateless" event subscriber in order to capture "PoolCreated" event on new pools created.
  * State is present, but it's a placeholder to actually make the events reach handlers (if there's no previous state - `processBlockLogs` is not called)
  */
-export class SpiritswapV3Factory extends StatefulEventSubscriber<FactoryState> {
+export class AlgebraFactory extends StatefulEventSubscriber<FactoryState> {
   handlers: {
     [event: string]: (event: any) => Promise<void>;
   } = {};
@@ -44,7 +42,7 @@ export class SpiritswapV3Factory extends StatefulEventSubscriber<FactoryState> {
 
     this.logDecoder = (log: Log) => this.factoryIface.parseLog(log);
 
-    this.handlers['PoolCreated'] = this.handleNewPool.bind(this);
+    this.handlers['Pool'] = this.handleNewPool.bind(this);
   }
 
   generateState(): FactoryState {
@@ -66,8 +64,7 @@ export class SpiritswapV3Factory extends StatefulEventSubscriber<FactoryState> {
   async handleNewPool(event: LogDescription) {
     const token0 = event.args.token0.toLowerCase();
     const token1 = event.args.token1.toLowerCase();
-    const fee = event.args.fee;
 
-    await this.onPoolCreated({ token0, token1, fee });
+    await this.onPoolCreated({ token0, token1 });
   }
 }

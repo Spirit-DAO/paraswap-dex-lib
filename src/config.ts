@@ -257,7 +257,34 @@ const baseConfigs: { [network: number]: BaseConfig } = {
     smardexSubgraphAuthToken: process.env.API_KEY_SMARDEX_SUBGRAPH || '',
     hashFlowDisabledMMs:
       process.env[`HASHFLOW_DISABLED_MMS_250`]?.split(',') || [],
-
+    adapterAddresses: {
+      FantomAdapter01: '0x654dE10890f8B2C5bF54E50Af169a7E93165C416',
+      FantomBuyAdapter: '0xb2634B3CBc1E401AB3C2743DB44d459C5c9aA662',
+    },
+    uniswapV2ExchangeRouterAddress:
+      '0xAB86e2bC9ec5485a9b60E684BA6d49bf4686ACC2',
+    rfqConfigs: {},
+    rpcPollingMaxAllowedStateDelayInBlocks: 2,
+    rpcPollingBlocksBackToTriggerUpdate: 1,
+    forceRpcFallbackDexs: [],
+	},
+	[Network.FANTOM_TEST]: {
+    network: Network.FANTOM_TEST,
+    networkName: 'Fantom Opera Testnet',
+    isTestnet: true,
+    nativeTokenName: 'Fantom',
+    nativeTokenSymbol: 'FTM',
+    wrappedNativeTokenAddress: '0x5002477fda4A92E3165B52d635bD24a0dc1716a6',
+    hasEIP1559: false,
+    augustusAddress: '0xDEF171Fe48CF0115B1d80b88dc8eAB59176FEe57',
+    augustusRFQAddress: '0x2DF17455B96Dde3618FD6B1C3a9AA06D6aB89347',
+    tokenTransferProxyAddress: '0x216b4b4ba9f3e719726886d34a177484278bfcae',
+    multicallV2Address: '0xf65B5c5135442c12666041ccc4F7837D5A4F460D',
+    privateHttpProvider: process.env.HTTP_PROVIDER_4002,
+    hashFlowAuthToken: process.env.API_KEY_HASHFLOW_AUTH_TOKEN || '',
+    smardexSubgraphAuthToken: process.env.API_KEY_SMARDEX_SUBGRAPH || '',
+    hashFlowDisabledMMs:
+      process.env[`HASHFLOW_DISABLED_MMS_4002`]?.split(',') || [],
     adapterAddresses: {
       FantomAdapter01: '0x654dE10890f8B2C5bF54E50Af169a7E93165C416',
       FantomBuyAdapter: '0xb2634B3CBc1E401AB3C2743DB44d459C5c9aA662',
