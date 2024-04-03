@@ -175,7 +175,7 @@ function _priceComputationCycles(
         state.amountCalculated + step.amountIn + step.feeAmount;
     }
 
-    if (cache.feeProtocol > 0n) {
+	  if (cache.feeProtocol > 0n) {
       const delta =
         (step.feeAmount * cache.feeProtocol) / PROTOCOL_FEE_DENOMINATOR;
       step.feeAmount -= delta;

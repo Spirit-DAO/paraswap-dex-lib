@@ -1,5 +1,5 @@
 import { DeepReadonly } from 'ts-essentials';
-import { PoolState } from '../types';
+import { PoolState, StepComputations } from '../types';
 import { NumberAsString, SwapSide } from '@paraswap/core';
 import { OutputResult, TickInfo } from '../../uniswap-v3/types';
 import { Tick } from '../../uniswap-v3/contract-math/Tick';
@@ -7,7 +7,6 @@ import { SqrtPriceMath } from '../../uniswap-v3/contract-math/SqrtPriceMath';
 import { TickMath } from '../../uniswap-v3/contract-math/TickMath';
 import { LiquidityMath } from '../../uniswap-v3/contract-math/LiquidityMath';
 import { _require, int256, uint32 } from '../../../utils';
-import { SwapMath } from '../../uniswap-v3/contract-math/SwapMath';
 import { Constants } from './Constants';
 import { BI_MAX_INT } from '../../../bigint-constants';
 import _ from 'lodash';
@@ -20,6 +19,8 @@ import { OUT_OF_RANGE_ERROR_POSTFIX } from '../../uniswap-v3/constants';
 import { TickManager } from './TickManager';
 import { TickTable } from './TickTable';
 import { MAX_PRICING_COMPUTATION_STEPS_ALLOWED } from '../constants';
+import { SwapMath } from '../../uniswap-v3/contract-math/SwapMath';
+import { NEGATIVE_ONE } from '@cryptoalgebra/integral-sdk';
 
 type UpdatePositionCache = {
   price: bigint;
@@ -33,18 +34,8 @@ interface SwapCalculationCache {
   exactInput: boolean; // Whether the exact input or output is specified
   fee: bigint; // The current dynamic fee
   startTick: bigint; // The tick at the start of a swap
-  isFirstCycleState: boolean;
-}
-
-interface PriceMovementCache {
-  stepSqrtPrice: bigint; // The Q64.96 sqrt of the price at the start of the step
-  nextTick: bigint; // The tick till the current step goes
-  initialized: boolean; // True if the _nextTick is initialized
-  nextTickPrice: bigint; // The Q64.96 sqrt of the price calculated from the _nextTick
-  input: bigint; // The additive amount of tokens that have been provided
-  output: bigint; // The additive amount of token that have been withdrawn
-  feeAmount: bigint; // The total amount of fee earned within a current step
-  tickCount: number;
+	isFirstCycleState: boolean;
+	totalFeeGrowthInput: bigint;
 }
 
 const isPoolV1_9 = (
@@ -138,7 +129,9 @@ function _priceComputationCycles(
       step.tickNext = TickMath.MAX_TICK;
     }
 
-    step.sqrtPriceNextX96 = TickMath.getSqrtRatioAtTick(step.tickNext);
+	  step.sqrtPriceNextX96 = TickMath.getSqrtRatioAtTick(step.tickNext);
+	  
+	  console.log('fees', poolState.globalState.lastFee)
 
     const swapStepResult = SwapMath.computeSwapStep(
       state.sqrtPriceX96,
@@ -151,9 +144,7 @@ function _priceComputationCycles(
         : step.sqrtPriceNextX96,
       state.liquidity,
       state.amountSpecifiedRemaining,
-      zeroForOne
-          ? poolState.globalState.feeZto
-          : poolState.globalState.feeOtz,
+      poolState.globalState.lastFee
     );
 
     state.sqrtPriceX96 = swapStepResult.sqrtRatioNextX96;
@@ -170,11 +161,19 @@ function _priceComputationCycles(
         state.amountCalculated + step.amountIn + step.feeAmount;
     }
 
-    if (cache.feeProtocol > 0n) {
+    /*  if (cache.feeProtocol > 0n) {
       const delta = step.feeAmount / cache.feeProtocol;
       step.feeAmount -= delta;
       state.protocolFee += delta;
-    }
+	  } */
+	  
+    if (cache.feeProtocol > 0n) {
+		  //console.log('cache.feeProtocol', step.feeAmount, cache.feeProtocol);
+      const delta =
+        (step.feeAmount * cache.feeProtocol) / 1000n;
+      step.feeAmount -= delta;
+      state.protocolFee += delta;
+	  }
 
     if (state.sqrtPriceX96 === step.sqrtPriceNextX96) {
       if (step.initialized) {
@@ -249,7 +248,7 @@ class AlgebraMathClass {
     const cache: PriceComputationCache = {
       liquidityStart: poolState.liquidity,
       blockTimestamp: this._blockTimestamp(poolState),
-      feeProtocol: slot0Start.lastFee,
+      feeProtocol: slot0Start.communityFee,
       secondsPerLiquidityCumulativeX128: 0n,
       tickCumulative: 0n,
       computedLatestObservation: false,
@@ -509,15 +508,22 @@ class AlgebraMathClass {
     }
   }
 
-  _calculateSwapAndLock(
+  _calculateSwap(
     networkId: number,
     poolState: PoolState,
     zeroToOne: boolean,
-    newSqrtPriceX96: bigint,
+    sqrtPriceLimitX96: bigint,
     newTick: bigint,
     newLiquidity: bigint,
   ): [bigint, bigint, bigint, bigint, bigint, bigint] {
     const { globalState, liquidity } = poolState;
+    if (zeroToOne) {
+      _require(sqrtPriceLimitX96 > TickMath.MIN_SQRT_RATIO, 'RATIO_MIN');
+      _require(sqrtPriceLimitX96 < globalState.price, 'RATIO_CURRENT');
+    } else {
+      _require(sqrtPriceLimitX96 < TickMath.MAX_SQRT_RATIO, 'RATIO_MAX');
+      _require(sqrtPriceLimitX96 > globalState.price, 'RATIO_CURRENT');
+    }
 
     let cache: SwapCalculationCache = {
       amountCalculated: 0n,
@@ -526,16 +532,17 @@ class AlgebraMathClass {
       exactInput: false,
       fee: 0n,
       startTick: 0n,
-      isFirstCycleState: true,
+		  isFirstCycleState: true,
+		  totalFeeGrowthInput: 0n,
     };
+
     let communityFeeAmount = 0n;
 
     // load from one storage slot
     let currentPrice = globalState.price;
     let currentTick = globalState.tick;
-	  cache.fee = zeroToOne
-			  ? poolState.globalState.feeZto
-			  : poolState.globalState.feeOtz;
+	  cache.fee = poolState.globalState.lastFee
+	  cache.communityFee = poolState.globalState.communityFee;
     let lastfees = globalState.lastFee;
 
     let amountRequired = cache.amountRequiredInitial; // to revalidate
@@ -547,96 +554,111 @@ class AlgebraMathClass {
     ];
 
     let currentLiquidity = liquidity;
-	cache.communityFee = lastfees;
+	  cache.communityFee = lastfees;
+
+    /* if (zeroToOne) {
+      require(limitSqrtPrice < currentPrice && limitSqrtPrice > TickMath.MIN_SQRT_RATIO, 'SPL');
+
+      cache.totalFeeGrowth = totalFeeGrowth0Token;
+    } else {
+      require(limitSqrtPrice > currentPrice && limitSqrtPrice < TickMath.MAX_SQRT_RATIO, 'SPL')
+      cache.totalFeeGrowth = totalFeeGrowth1Token;
+    } */
 
     cache.startTick = currentTick;
+    cache.totalFeeGrowthInput
 
-    const step: PriceMovementCache = {
-      feeAmount: 0n,
+    const step: StepComputations = {
+      sqrtPriceStartX96: 0n,
+      tickNext: 0n,
       initialized: true,
-      input: 0n,
-      nextTick: 0n,
-      nextTickPrice: 0n,
-      output: 0n,
-      stepSqrtPrice: 0n,
-      tickCount: 0,
+      sqrtPriceNextX96: 0n,
+      amountIn: 0n,
+      amountOut: 0n,
+      feeAmount: 0n,
     };
-    // swap until there is remaining input or output tokens or we reach the price limit
-    while (true) {
-      step.stepSqrtPrice = currentPrice;
 
-      //equivalent of tickTable.nextTickInTheSameRow(currentTick, zeroToOne);
-      [step.nextTick, step.initialized] =
-        TickTable.nextInitializedTickWithinOneWord(
-          networkId,
-          poolState,
-          currentTick,
-          zeroToOne,
-          false,
-          poolState.areTicksCompressed ? poolState.tickSpacing : undefined,
-        );
+    while (
+      true
+    ) {
+      step.sqrtPriceStartX96 = currentPrice;
 
-      step.nextTickPrice = TickMath.getSqrtRatioAtTick(step.nextTick);
+      // because each iteration of the while loop rounds, we can't optimize this code (relative to the smart contract)
+      // by simply traversing to the next available tick, we instead need to exactly replicate
+      // tickBitmap.nextInitializedTickWithinOneWord
+      [step.tickNext, step.initialized] = TickTable.nextInitializedTickWithinOneWord(
+        networkId,
+        poolState,
+        currentTick,
+        zeroToOne,
+        false,
+        poolState.areTicksCompressed ? poolState.tickSpacing : undefined,
+      );
 
-      // equivalent of  PriceMovementMath.movePriceTowardsTarget
+      if (step.tickNext < TickMath.MIN_TICK) {
+        step.tickNext = TickMath.MIN_TICK;
+      } else if (step.tickNext > TickMath.MAX_TICK) {
+        step.tickNext = TickMath.MAX_TICK;
+      }
+
+      step.sqrtPriceNextX96 = TickMath.getSqrtRatioAtTick(step.tickNext);
+
+      console.log("grse", cache.fee);
+
       const result = SwapMath.computeSwapStep(
         currentPrice,
-        zeroToOne == step.nextTickPrice < newSqrtPriceX96
-          ? newSqrtPriceX96
-          : step.nextTickPrice,
+        (
+          zeroToOne
+            ? step.sqrtPriceNextX96 < sqrtPriceLimitX96
+            : step.sqrtPriceNextX96 > sqrtPriceLimitX96
+        )
+          ? sqrtPriceLimitX96
+          : step.sqrtPriceNextX96,
         currentLiquidity,
         amountRequired,
         cache.fee,
       );
-      [currentPrice, step.input, step.output, step.feeAmount] = [
-        result.sqrtRatioNextX96, // TODO validate
+
+      [currentPrice, step.amountIn, step.amountOut, step.feeAmount] = [
+        result.sqrtRatioNextX96,
         result.amountIn,
         result.amountOut,
         result.feeAmount,
       ];
 
       if (cache.exactInput) {
-        amountRequired -= int256(step.input + step.feeAmount); // decrease remaining input amount
-        cache.amountCalculated = cache.amountCalculated - int256(step.output); // decrease calculated output amount
+        amountRequired -= int256(step.amountIn + step.feeAmount)
+        cache.amountCalculated = cache.amountCalculated - int256(step.amountOut)
       } else {
-        amountRequired += int256(step.output); // increase remaining output amount (since its negative)
-        cache.amountCalculated =
-          cache.amountCalculated + int256(step.input + step.feeAmount); // increase calculated input amount
+        amountRequired += int256(step.amountOut);
+        cache.amountCalculated += cache.amountCalculated + int256(step.amountIn + step.feeAmount);
       }
-
-      if (cache.communityFee > 0) {
-        let delta =
-          (step.feeAmount * cache.communityFee) /
-          Constants.COMMUNITY_FEE_DENOMINATOR;
-        step.feeAmount -= delta;
-        communityFeeAmount += delta;
-      }
-
-      // skip totalFeeGrowth fee logic
-
-      if (currentPrice == step.nextTickPrice) {
-        // if the reached tick is initialized then we need to cross it
+      
+      if (currentPrice == step.sqrtPriceNextX96) {
+        // if the tick is initialized, run the tick transition
         if (step.initialized) {
-          const info = poolState.ticks[Number(step.nextTick)];
-          const liquidityDelta = info.liquidityNet * (zeroToOne ? -1n : 1n);
+          let liquidityNet = poolState.ticks[Number(step.tickNext)].liquidityNet;
+          // if we're moving leftward, we interpret liquidityNet as the opposite sign
+          // safe because liquidityNet cannot be type(int128).min
+          if (zeroToOne)
+            liquidityNet = liquidityNet * BigInt(NEGATIVE_ONE.toString());
 
           currentLiquidity = LiquidityMath.addDelta(
             currentLiquidity,
-            liquidityDelta,
+            liquidityNet,
           );
         }
 
-        currentTick = zeroToOne ? step.nextTick - 1n : step.nextTick;
-      } else if (currentPrice != step.stepSqrtPrice) {
-        // if the price has changed but hasn't reached the target
+        currentTick = zeroToOne ? step.tickNext - 1n : step.tickNext;
+      } else if (currentPrice != step.sqrtPriceStartX96) {
+        // recompute unless we're on a lower tick boundary (i.e. already transitioned ticks), and haven't moved
         currentTick = TickMath.getTickAtSqrtRatio(currentPrice);
-        break; // since the price hasn't reached the target, amountRequired should be 0
+        break;
       }
 
-      // check stop condition
       if (
         amountRequired == 0n ||
-        currentPrice == newSqrtPriceX96 ||
+        currentPrice == sqrtPriceLimitX96 ||
         currentTick === newTick // deviation from contract
       ) {
         break;
@@ -644,9 +666,9 @@ class AlgebraMathClass {
     }
 
     _require(
-      currentPrice === newSqrtPriceX96 && currentTick === newTick,
+      currentPrice === sqrtPriceLimitX96 && currentTick === newTick,
       'LOGIC ERROR: calculated (currentPrice,currentTick) and (newSqrtPriceX96, newTick) from event should always be equal at the end',
-      { currentPrice, newSqrtPriceX96, currentTick, newTick },
+      { currentPrice, sqrtPriceLimitX96, currentTick, newTick },
       'currentPrice === newSqrtPriceX96 && currentTick === newTick',
     );
 

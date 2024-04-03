@@ -59,6 +59,7 @@ async function checkOnChainPricing(
 
   const readerIface = algebra.quoterIface;
 
+	console.log("OH")
   const readerCallData = getReaderCalldata(
     exchangeAddress,
     readerIface,
@@ -67,15 +68,18 @@ async function checkOnChainPricing(
     tokenIn,
     tokenOut,
   );
+  console.log("PRINT OU PAAS ", readerCallData)
   const readerResult = (
     await dexHelper.multiContract.methods
       .aggregate(readerCallData)
       .call({}, blockNumber)
   ).returnData;
+  console.log("PAPI")
 
   const expectedPrices = [0n].concat(
     decodeReaderResult(readerResult, readerIface, funcName),
   );
+  console.log("PAASiuio ")
 
   expect(prices).toEqual(expectedPrices);
 }
@@ -125,7 +129,9 @@ async function testPricingOnNetwork(
     checkConstantPoolPrices(poolPrices!, amounts, dexKey);
   } else {
     checkPoolPrices(poolPrices!, amounts, side, dexKey);
-  }
+	}
+	
+	console.log("YEYEYE")
 
   // Check if onchain pricing equals to calculated ones
   await checkOnChainPricing(
@@ -151,9 +157,9 @@ describe('SpiritSwapV3', function () {
 
     const tokens = Tokens[network];
 
-    describe('lzUSDC => WFTM', () => {
-      const srcTokenSymbol = 'lzUSDC';
-      const destTokenSymbol = 'WFTM';
+    describe('WFTM => USDC', () => {
+      const srcTokenSymbol = 'WFTM';
+      const destTokenSymbol = 'LZUSDC';
 
       const amountsForSell = [
         0n,
@@ -241,9 +247,9 @@ describe('SpiritSwapV3', function () {
       });
     });
 
-    describe('lzUSDC => WFTM', () => {
-      const srcTokenSymbol = 'lzUSDC';
-      const destTokenSymbol = 'WFTM';
+    describe('WFTM => USDC', () => {
+      const srcTokenSymbol = 'WFTM';
+      const destTokenSymbol = 'LZUSDC';
 
       const amountsForSell = [
         0n,

@@ -90,7 +90,7 @@ export class SpiritSwapV3 extends SimpleExchange implements IDex<AlgebraData> {
 
   private notExistingPoolSetKey: string;
 
-  private AlgebraPoolImplem: typeof AlgebraEventPool
+  private AlgebraPoolImplem: typeof AlgebraEventPool;
 
   readonly SRC_TOKEN_DEX_TRANSFERS = 1;
   readonly DEST_TOKEN_DEX_TRANSFERS = 1;
@@ -293,16 +293,14 @@ export class SpiritSwapV3 extends SimpleExchange implements IDex<AlgebraData> {
         this.config.deployer,
       );
 
-	  try {
-		console.log('blockNumber', blockNumber)
+    try {
       await pool.initialize(blockNumber, {
         initCallback: state => {
-			console.log('state', state);
           //really hacky, we need to push poolAddress so that we subscribeToLogs in StatefulEventSubscriber
           pool!.addressesSubscribed[0] = state.pool;
           pool!.poolAddress = state.pool;
           pool!.initFailed = false;
-			  pool!.initRetryAttemptCount = 0;
+          pool!.initRetryAttemptCount = 0;
         },
       });
 
@@ -670,6 +668,8 @@ export class SpiritSwapV3 extends SimpleExchange implements IDex<AlgebraData> {
               this.SRC_TOKEN_DEX_TRANSFERS,
             )
           : [unitAmount, ..._amounts];
+      
+		  console.log('side', side)
 
       const unitResult = this._getOutputs(
         state,
@@ -684,7 +684,7 @@ export class SpiritSwapV3 extends SimpleExchange implements IDex<AlgebraData> {
         zeroForOne,
         side,
         balanceDestToken,
-      );
+		);
 
       if (!unitResult || !pricesResult) {
         this.logger.debug('Prices or unit is not calculated');
@@ -994,9 +994,13 @@ export class SpiritSwapV3 extends SimpleExchange implements IDex<AlgebraData> {
       );
 
       if (side === SwapSide.SELL) {
+        console.log("SELL", amounts)
+        console.log(destTokenBalance, outputsResult.outputs[0])
         if (outputsResult.outputs[0] > destTokenBalance) {
+          console.log("**")
           return null;
         }
+        console.log("UU")
 
         for (let i = 0; i < outputsResult.outputs.length; i++) {
           if (outputsResult.outputs[i] > destTokenBalance) {
@@ -1005,9 +1009,13 @@ export class SpiritSwapV3 extends SimpleExchange implements IDex<AlgebraData> {
           }
         }
       } else {
+        console.log("BUY")
+        console.log(destTokenBalance)
         if (amounts[0] > destTokenBalance) {
+          console.log("))", amounts[0], destTokenBalance)
           return null;
         }
+        console.log("AA")
 
         // This may be improved by first checking outputs and requesting outputs
         // only for amounts that makes more sense, but I don't think this is really
@@ -1019,6 +1027,8 @@ export class SpiritSwapV3 extends SimpleExchange implements IDex<AlgebraData> {
           }
         }
       }
+      
+		  console.log('outputsResult@', outputsResult)
 
       return outputsResult;
     } catch (e) {

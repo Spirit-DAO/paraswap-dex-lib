@@ -182,7 +182,7 @@ function testForNetwork(
 describe('SpiritSwap', () => {
   describe('V3', () => {
     const dexKey = 'SpiritSwapV3';
-    const network = Network.FANTOM_TEST;
+    const network = Network.FANTOM;
 
     /* describe('Fantom: Tax Tokens', () => {
       const tokenASymbol: string = 'RDPX';
@@ -210,10 +210,10 @@ describe('SpiritSwap', () => {
     }); */
 
     describe('Fantom: Non-Tax tokens', () => {
-      const tokenASymbol: string = 'SPIRIT';
-      const tokenBSymbol: string = 'USDC';
+      const tokenASymbol: string = 'axlUSDC';
+      const tokenBSymbol: string = 'lzUSDC';
 
-      const tokenAAmount: string = '1000000000000000000';
+      const tokenAAmount: string = '1000000000';
       const tokenBAmount: string = '1000000000';
       const nativeTokenAmount = '1000000000000000000';
 

@@ -445,10 +445,6 @@ export const Tokens: {
       address: '0x3a58a54c066fdc0f2d55fc9c89f0415c92ebf3c4',
       decimals: 18,
     },
-    axlUSDC: {
-      address: '0x750e4c4984a9e0f12978ea6742bc1c5d248f40ed',
-      decimals: 6,
-    },
     deUSDC: {
       address: '0x1ddcaa4ed761428ae348befc6718bcb12e63bfaa',
       decimals: 6,
@@ -473,7 +469,7 @@ export const Tokens: {
   [Network.FANTOM_TEST]: {
     FTM: { address: ETHER_ADDRESS, decimals: 18 },
     WFTM: {
-      address: '0x21be370d5312f44cb42ce377bc9b8a0cef1a4c83',
+      address: '0x5002477fda4A92E3165B52d635bD24a0dc1716a6',
       decimals: 18,
     },
     SPIRIT: {
@@ -482,7 +478,7 @@ export const Tokens: {
     },
     USDC: {
       address: '0x861338c1b2f4961D6Fc6e07dFEEDd5ded33dceC3',
-      decimals: 18,
+      decimals: 6,
     },
   },
   [Network.FANTOM]: {
@@ -508,7 +504,7 @@ export const Tokens: {
       decimals: 18,
     },
     USDC: {
-      address: '0x04068DA6C83AFCFA0e13ba15A6696662335D5B75',
+      address: '0x28a92dde19D9989F39A49905d7C9C2FAc7799bDf',
       decimals: 6,
     },
     FUSDT: {
@@ -633,10 +629,6 @@ export const Tokens: {
     CONE: {
       address: '0xA60205802E1B5C6EC1CAFA3cAcd49dFeECe05AC9',
       decimals: 18,
-    },
-    axlUSD: {
-      address: '0x4268B8F0B87b6Eae5d897996E6b845ddbD99Adf3',
-      decimals: 6,
     },
     FRAX: {
       address: '0x90C97F71E18723b0Cf0dfa30ee176Ab653E89F40',
@@ -1149,9 +1141,10 @@ export const Holders: {
   },
   [Network.FANTOM]: {
     DAI: '0x370f4b2dcf75c94d8d4450b493661a9c6170d0b5',
-    FTM: '0x431e81E5dfB5A24541b5Ff8762bDEF3f32F96354',
-    WFTM: '0x3e923747ca2675e096d812c3b24846ac39aed645',
-    USDC: '0xf53feaeb035361c046e5669745695e450ebb4028',
+	FTM: '0x431e81E5dfB5A24541b5Ff8762bDEF3f32F96354',
+	LZUSDC: '0x28a92dde19D9989F39A49905d7C9C2FAc7799bDf',
+    WFTM: '0xBB634cafEf389cDD03bB276c82738726079FcF2E',
+    USDC: '0xc647CE76ec30033Aa319d472Ae9f4462068f2AD7',
     FUSDT: '0x9ade1c17d25246c405604344f89E8F23F8c1c632',
     POPS: '0x4b78b52e7de4d8b7d367297cb8a87c1875a9d591',
     aFanUSDT: '0x8EBc96fF91A30059E447bFC7C0a7394f8A5793E6',
@@ -1169,8 +1162,9 @@ export const Holders: {
     GDAI: '0x0e2ed73f9c1409e2b36fe6c46e60d4557b7c2ac0',
     EQUAL: '0x8b187ea19c93091a4d6b426b71871648182b5fac',
     FVM: '0x07BB65fAaC502d4996532F834A1B7ba5dC32Ff96',
-    lzUSDC: '0x1e38e2e0e7df3be6592867d0ac2713a4dbda8350',
-    axlUSDC: '0xccf932cd565c21d2e516c8ff3a4f244eea27e09a',
+    lzUSDC: '0xc647CE76ec30033Aa319d472Ae9f4462068f2AD7',
+    axlUSDC: '0xA196C7754f4ec79dE55bB5Db82187bBE82275f7f',
+    AXLUSDC: '0xA196C7754f4ec79dE55bB5Db82187bBE82275f7f',
   },
   [Network.BSC]: {
     DAI: '0xf68a4b64162906eff0ff6ae34e2bb1cd42fef62d',

@@ -16,7 +16,7 @@ import {
 } from './types';
 import { ethers } from 'ethers';
 import { Contract } from 'web3-eth-contract';
-import AlgebraV1_9ABI from '../../abi/algebra/AlgebraPool-v1_9.abi.json';
+import SpiritSwapPool from '../../abi/spiritswap-v3/SpiritswapV3Pool.abi.json';
 import { OUT_OF_RANGE_ERROR_POSTFIX } from '../uniswap-v3/constants';
 import { uint256ToBigInt } from '../../lib/decoders';
 import { MultiCallParams } from '../../lib/multi-wrapper';
@@ -53,7 +53,7 @@ export class AlgebraEventPool extends StatefulEventSubscriber<PoolState> {
   readonly token0: Address;
   readonly token1: Address;
 
-  public readonly poolIface = new Interface(AlgebraV1_9ABI);
+  public readonly poolIface = new Interface(SpiritSwapPool);
 
   public initFailed = false;
   public initRetryAttemptCount = 0;
@@ -142,7 +142,8 @@ export class AlgebraEventPool extends StatefulEventSubscriber<PoolState> {
           if (
             e instanceof Error &&
             e.message.endsWith(OUT_OF_RANGE_ERROR_POSTFIX)
-          ) {
+		  ) {
+			console.log('FRGGGGERERG', event.name)
             this.logger.warn(
               `${this.parentName}: Pool ${this.poolAddress} on ${
                 this.dexHelper.config.data.network
@@ -186,12 +187,6 @@ export class AlgebraEventPool extends StatefulEventSubscriber<PoolState> {
   private async _fetchPoolState_v1_9SingleStep(
     blockNumber: number,
   ): Promise<[bigint, bigint, DecodedStateMultiCallResultWithRelativeBitmaps]> {
-	  console.log('fetchPoolState', this.stateMultiContract.options.address)
-	  console.log(this.factoryAddress,
-		this.token0,
-		this.token1,
-		this.getBitmapRangeToRequest(),
-		this.getBitmapRangeToRequest())
     const callData: MultiCallParams<
       bigint | DecodedStateMultiCallResultWithRelativeBitmaps
     >[] = [
@@ -369,15 +364,15 @@ export class AlgebraEventPool extends StatefulEventSubscriber<PoolState> {
 
     _reduceTickBitmap(tickBitmap, _state.tickBitmap);
 		_reduceTicks(ticks, _state.ticks);
-		console.log('generateState3')
+		console.log('generateState3',_state.globalState.lastFee)
     const globalState: PoolState['globalState'] = {
       price: bigIntify(_state.globalState.price),
       tick: bigIntify(_state.globalState.tick),
       lastFee: bigIntify(_state.globalState.lastFee),
       pluginConfig: bigIntify(_state.globalState.pluginConfig),
       communityFee: bigIntify(_state.globalState.communityFee),
-      feeZto: bigIntify(_state.globalState.feeZto),
-      feeOtz: bigIntify(_state.globalState.feeOtz),
+      feeZto: bigIntify(_state.globalState.communityFee),
+      feeOtz: bigIntify(_state.globalState.communityFee),
     };
     const currentTick = globalState.tick;
     const startTickBitmap = TickTable.position(BigInt(currentTick))[0];
@@ -422,7 +417,7 @@ export class AlgebraEventPool extends StatefulEventSubscriber<PoolState> {
     } else {
       const zeroForOne = amount0 > 0n;
 
-      const [, , , , , communityFee] = AlgebraMath._calculateSwapAndLock(
+      const [, , , , , communityFee] = AlgebraMath._calculateSwap(
         this.dexHelper.config.data.network,
         pool,
         zeroForOne,
@@ -466,7 +461,8 @@ export class AlgebraEventPool extends StatefulEventSubscriber<PoolState> {
 
       return pool;
     }
-  }
+	}
+
   handleMintEvent(
     event: any,
     pool: PoolState,
@@ -477,7 +473,8 @@ export class AlgebraEventPool extends StatefulEventSubscriber<PoolState> {
     const topTick = bigIntify(event.args.topTick);
     const liquidityActual = bigIntify(event.args.liquidityAmount);
     const amount0 = bigIntify(event.args.amount0);
-    const amount1 = bigIntify(event.args.amount1);
+	const amount1 = bigIntify(event.args.amount1);
+	
     pool.blockTimestamp = bigIntify(blockHeader.timestamp);
 
     AlgebraMath._updatePositionTicksAndFees(

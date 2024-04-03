@@ -28,6 +28,16 @@ export type PoolState = {
   areTicksCompressed: boolean;
 };
 
+export interface StepComputations {
+	sqrtPriceStartX96: bigint;
+	tickNext: bigint;
+	initialized: boolean;
+	sqrtPriceNextX96: bigint;
+	amountIn: bigint;
+	amountOut: bigint;
+	feeAmount: bigint;
+}
+
 export type FactoryState = Record<string, never>;
 
 export type AlgebraData = {
