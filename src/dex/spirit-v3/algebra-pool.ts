@@ -34,6 +34,7 @@ import {
   TICK_BITMAP_TO_USE,
   TICK_BITMAP_TO_USE_BY_CHAIN,
 } from './constants';
+import { TickMath } from '../uniswap-v3/contract-math/TickMath';
 
 export class AlgebraEventPool extends StatefulEventSubscriber<PoolState> {
   handlers: {
@@ -142,8 +143,8 @@ export class AlgebraEventPool extends StatefulEventSubscriber<PoolState> {
           if (
             e instanceof Error &&
             e.message.endsWith(OUT_OF_RANGE_ERROR_POSTFIX)
-		  ) {
-			console.log('FRGGGGERERG', event.name)
+          ) {
+            console.log('FRGGGGERERG', event.name);
             this.logger.warn(
               `${this.parentName}: Pool ${this.poolAddress} on ${
                 this.dexHelper.config.data.network
@@ -217,10 +218,9 @@ export class AlgebraEventPool extends StatefulEventSubscriber<PoolState> {
           .encodeABI(),
         decodeFunction: decodeStateMultiCallResultWithRelativeBitmaps,
       },
-		  ];
-	  
-	  
-	console.log('callData', callData);
+    ];
+
+    console.log('callData', callData);
 
     const [resBalance0, resBalance1, resState] =
       await this.dexHelper.multiWrapper.tryAggregate<
@@ -231,9 +231,9 @@ export class AlgebraEventPool extends StatefulEventSubscriber<PoolState> {
         blockNumber,
         this.dexHelper.multiWrapper.defaultBatchSize,
         true,
-		  );
-	  
-	console.log('pool addy', this.poolAddress);
+      );
+
+    console.log('pool addy', this.poolAddress);
 
     assert(resState.success, 'Pool does not exist');
 
@@ -354,17 +354,20 @@ export class AlgebraEventPool extends StatefulEventSubscriber<PoolState> {
     }
   }
 
-	async generateState(blockNumber: number): Promise<Readonly<PoolState>> {
-	  console.log('generateState')
+  async generateState(blockNumber: number): Promise<Readonly<PoolState>> {
+    console.log('generateState');
     const [balance0, balance1, _state] =
       await this._fetchInitStateMultiStrategies(blockNumber);
-	  console.log('generateState2')
-    const tickBitmap = {};
+    console.log('generateState2');
     const ticks = {};
+    const tickTable = {};
+    const tickTreeSecondLayer = {};
 
-    _reduceTickBitmap(tickBitmap, _state.tickBitmap);
-		_reduceTicks(ticks, _state.ticks);
-		console.log('generateState3',_state.globalState.lastFee)
+    _reduceTicks(ticks, _state.ticks);
+    _reduceTickBitmap(tickTable, _state.tickTable);
+    _reduceTickBitmap(tickTreeSecondLayer, _state.tickTreeSecondLayer);
+  
+    console.log('generateState3', _state.globalState.lastFee);
     const globalState: PoolState['globalState'] = {
       price: bigIntify(_state.globalState.price),
       tick: bigIntify(_state.globalState.tick),
@@ -375,7 +378,6 @@ export class AlgebraEventPool extends StatefulEventSubscriber<PoolState> {
       feeOtz: bigIntify(_state.globalState.communityFee),
     };
     const currentTick = globalState.tick;
-    const startTickBitmap = TickTable.position(BigInt(currentTick))[0];
 
     return {
       pool: _state.pool,
@@ -384,13 +386,16 @@ export class AlgebraEventPool extends StatefulEventSubscriber<PoolState> {
       liquidity: bigIntify(_state.liquidity),
       tickSpacing: bigIntify(_state.tickSpacing),
       maxLiquidityPerTick: bigIntify(_state.maxLiquidityPerTick),
-      tickBitmap,
       ticks,
-      startTickBitmap,
       isValid: true,
       balance0,
       balance1,
       areTicksCompressed: false,
+      tickTable,
+      tickTreeSecondLayer,
+      newTreeRoot: 0n,
+      prevTick: TickMath.MIN_TICK,
+      nextTick: TickMath.MAX_TICK,
     };
   }
 
@@ -461,7 +466,7 @@ export class AlgebraEventPool extends StatefulEventSubscriber<PoolState> {
 
       return pool;
     }
-	}
+  }
 
   handleMintEvent(
     event: any,
@@ -473,9 +478,11 @@ export class AlgebraEventPool extends StatefulEventSubscriber<PoolState> {
     const topTick = bigIntify(event.args.topTick);
     const liquidityActual = bigIntify(event.args.liquidityAmount);
     const amount0 = bigIntify(event.args.amount0);
-	const amount1 = bigIntify(event.args.amount1);
-	
+    const amount1 = bigIntify(event.args.amount1);
+
     pool.blockTimestamp = bigIntify(blockHeader.timestamp);
+
+    console.log('amount ', amount0, amount1, liquidityActual);
 
     AlgebraMath._updatePositionTicksAndFees(
       this.dexHelper.config.data.network,

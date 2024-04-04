@@ -1,7 +1,7 @@
 import { DeepReadonly } from 'ts-essentials';
 import { PoolState, StepComputations } from '../types';
 import { NumberAsString, SwapSide } from '@paraswap/core';
-import { OutputResult, TickInfo } from '../../uniswap-v3/types';
+import { OutputResult } from '../../uniswap-v3/types';
 import { Tick } from '../../uniswap-v3/contract-math/Tick';
 import { SqrtPriceMath } from '../../uniswap-v3/contract-math/SqrtPriceMath';
 import { TickMath } from '../../uniswap-v3/contract-math/TickMath';
@@ -9,11 +9,10 @@ import { LiquidityMath } from '../../uniswap-v3/contract-math/LiquidityMath';
 import { _require, int256, uint32 } from '../../../utils';
 import { Constants } from './Constants';
 import { BI_MAX_INT } from '../../../bigint-constants';
+import { TickInfo } from '..//types';
 import _ from 'lodash';
 import {
-  PriceComputationCache,
   PriceComputationState,
-  _updatePriceComputationObjects,
 } from '../../uniswap-v3/contract-math/uniswap-v3-math';
 import { OUT_OF_RANGE_ERROR_POSTFIX } from '../../uniswap-v3/constants';
 import { TickManager } from './TickManager';
@@ -26,6 +25,24 @@ type UpdatePositionCache = {
   price: bigint;
   tick: bigint;
 };
+
+export type PriceComputationCache = {
+  liquidityStart: bigint;
+  blockTimestamp: bigint;
+  feeProtocol: bigint;
+  totalFeeGrowthInput: bigint;
+  totalFeeGrowthOutput: bigint;
+  computedLatestObservation: boolean;
+  tickCount: number;
+};
+
+export function _updatePriceComputationObjects<
+  T extends PriceComputationState | PriceComputationCache,
+>(toUpdate: T, updateBy: T) {
+  for (const k of Object.keys(updateBy) as (keyof T)[]) {
+    toUpdate[k] = updateBy[k];
+  }
+}
 
 interface SwapCalculationCache {
   communityFee: bigint; // The community fee of the selling token, uint256 to minimize casts
@@ -185,14 +202,23 @@ function _priceComputationCycles(
             tick: { ...ticksCopy[castTickNext] },
           };
         }
-
-        let liquidityNet = Tick.cross(
-          ticksCopy,
-          step.tickNext,
-          cache.secondsPerLiquidityCumulativeX128,
-          cache.tickCumulative,
-          cache.blockTimestamp,
-        );
+        let liquidityNet: bigint;
+        if (zeroForOne) {
+          [liquidityNet,,] = TickManager.cross(
+            ticksCopy,
+            step.tickNext,
+            cache.totalFeeGrowthInput,
+            cache.totalFeeGrowthOutput
+          );
+          
+        } else {
+          [liquidityNet,,] = TickManager.cross(
+            ticksCopy,
+            step.tickNext,
+            cache.totalFeeGrowthInput,
+            cache.totalFeeGrowthOutput
+          );
+        }
         if (zeroForOne) liquidityNet = -liquidityNet;
 
         state.liquidity = LiquidityMath.addDelta(state.liquidity, liquidityNet);
@@ -249,8 +275,8 @@ class AlgebraMathClass {
       liquidityStart: poolState.liquidity,
       blockTimestamp: this._blockTimestamp(poolState),
       feeProtocol: slot0Start.communityFee,
-      secondsPerLiquidityCumulativeX128: 0n,
-      tickCumulative: 0n,
+      totalFeeGrowthInput: 0n,
+      totalFeeGrowthOutput: 0n,
       computedLatestObservation: false,
       tickCount: 0,
     };
@@ -429,51 +455,27 @@ class AlgebraMathClass {
     // skip position logic
     // skip fee logic
 
-    if (liquidityDelta !== 0n) {
-      const time = this._blockTimestamp(state);
-
-      if (
-        TickManager.update(
-          state,
-          bottomTick,
-          cache.tick,
-          liquidityDelta,
-          0n, // secondsPerLiquidityCumulative, play no role in pricing
-          0n, // tickCumulative, play no role in pricing
-          time,
-          false, // isTopTick,
-          state.maxLiquidityPerTick,
-        )
-      ) {
-        toggledBottom = true;
-        TickTable.toggleTick(
-          networkId,
-          state,
-          bottomTick,
-          state.areTicksCompressed ? state.tickSpacing : undefined,
-        );
-      }
-      if (
-        TickManager.update(
-          state,
-          topTick,
-          cache.tick,
-          liquidityDelta,
-          0n, // secondsPerLiquidityCumulative, play no role in pricing
-          0n, // tickCumulative, play no role in pricing
-          time,
-          true, // isTopTick
-          state.maxLiquidityPerTick,
-        )
-      ) {
-        toggledTop = true;
-        TickTable.toggleTick(
-          networkId,
-          state,
-          topTick,
-          state.areTicksCompressed ? state.tickSpacing : undefined,
-        );
-      }
+	  if (liquidityDelta !== 0n) {
+		  toggledBottom = TickManager.update(
+			  state,
+        bottomTick,
+        cache.tick,
+        liquidityDelta,
+        0n,
+        0n,
+        false,
+        state.maxLiquidityPerTick
+      );
+      toggledTop = TickManager.update(
+        state,
+        topTick,
+        cache.tick,
+        liquidityDelta,
+        0n,
+        0n,
+        true,
+        state.maxLiquidityPerTick
+      );
     }
 
     // skip fee && position related stuffs
@@ -481,9 +483,10 @@ class AlgebraMathClass {
     // same as UniswapV3Pool.sol line 327 ->   if (params.liquidityDelta != 0) {
     if (liquidityDelta !== 0n) {
       // if liquidityDelta is negative and the tick was toggled, it means that it should not be initialized anymore, so we delete it
-      if (liquidityDelta < 0) {
-        if (toggledBottom) Tick.clear(state, bottomTick);
-        if (toggledTop) Tick.clear(state, topTick);
+      if (toggledBottom || toggledTop) {
+        TickManager._addOrRemoveTicks(state, bottomTick, topTick, toggledTop, toggledBottom, cache.tick, liquidityDelta < 0n);
+       /*  if (toggledBottom) Tick.clear(state, bottomTick);
+        if (toggledTop) Tick.clear(state, topTick); */
       }
       // same as UniswapV3Pool.sol line 331 ? -> amount0 = SqrtPriceMath.getAmount0Delta(
       // skip amount0 and amount1 as already read from event
@@ -603,8 +606,6 @@ class AlgebraMathClass {
 
       step.sqrtPriceNextX96 = TickMath.getSqrtRatioAtTick(step.tickNext);
 
-      console.log("grse", cache.fee);
-
       const result = SwapMath.computeSwapStep(
         currentPrice,
         (
@@ -637,15 +638,15 @@ class AlgebraMathClass {
       if (currentPrice == step.sqrtPriceNextX96) {
         // if the tick is initialized, run the tick transition
         if (step.initialized) {
-          let liquidityNet = poolState.ticks[Number(step.tickNext)].liquidityNet;
+          let liquidityDelta = poolState.ticks[Number(step.tickNext)].liquidityDelta;
           // if we're moving leftward, we interpret liquidityNet as the opposite sign
           // safe because liquidityNet cannot be type(int128).min
           if (zeroToOne)
-            liquidityNet = liquidityNet * BigInt(NEGATIVE_ONE.toString());
+          liquidityDelta = liquidityDelta * BigInt(NEGATIVE_ONE.toString());
 
           currentLiquidity = LiquidityMath.addDelta(
             currentLiquidity,
-            liquidityNet,
+            liquidityDelta,
           );
         }
 

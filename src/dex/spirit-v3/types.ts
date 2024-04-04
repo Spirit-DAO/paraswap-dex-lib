@@ -1,6 +1,5 @@
 import { BigNumber } from 'ethers';
 import { Address, NumberAsString } from '../../types';
-import { TickInfo } from '../uniswap-v3/types';
 
 type GlobalState = {
   price: bigint; // The square root of the current price in Q64.96 format
@@ -12,6 +11,15 @@ type GlobalState = {
   feeOtz: bigint; // The current fee in hundredths of a bip, i.e. 1e-6
 };
 
+export type TickInfo = {
+  liquidityTotal: bigint;
+  liquidityDelta: bigint;
+  outerFeeGrowth0Token: bigint;
+	outerFeeGrowth1Token: bigint;
+	prevTick: bigint;
+  nextTick: bigint;
+};
+
 export type PoolState = {
   pool: string;
   blockTimestamp: bigint;
@@ -19,23 +27,28 @@ export type PoolState = {
   globalState: GlobalState; // eq slot0
   liquidity: bigint;
   maxLiquidityPerTick: bigint;
-  tickBitmap: Record<NumberAsString, bigint>; // actually called tickTable in contract-
+  //tickBitmap: Record<NumberAsString, bigint>; // actually called tickTable in contract-
   ticks: Record<NumberAsString, TickInfo>; // although variable names are different in contracts but matches UniswapV3 TickInfo struct 1:1
+  tickTable: Record<NumberAsString, bigint>; // actually called ticks in contract
+  tickTreeSecondLayer: Record<NumberAsString, bigint>; // actually called tickTableSecondLayer in contract
   isValid: boolean;
   startTickBitmap: bigint;
   balance0: bigint;
   balance1: bigint;
   areTicksCompressed: boolean;
+  prevTick: bigint;
+  nextTick: bigint;
+  newTreeRoot: bigint;
 };
 
 export interface StepComputations {
-	sqrtPriceStartX96: bigint;
-	tickNext: bigint;
-	initialized: boolean;
-	sqrtPriceNextX96: bigint;
-	amountIn: bigint;
-	amountOut: bigint;
-	feeAmount: bigint;
+  sqrtPriceStartX96: bigint;
+  tickNext: bigint;
+  initialized: boolean;
+  sqrtPriceNextX96: bigint;
+  amountIn: bigint;
+  amountOut: bigint;
+  feeAmount: bigint;
 }
 
 export type FactoryState = Record<string, never>;
