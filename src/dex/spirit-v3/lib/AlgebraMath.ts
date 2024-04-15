@@ -455,27 +455,49 @@ class AlgebraMathClass {
     // skip position logic
     // skip fee logic
 
-	  if (liquidityDelta !== 0n) {
-		  toggledBottom = TickManager.update(
-			  state,
-        bottomTick,
-        cache.tick,
-        liquidityDelta,
-        0n,
-        0n,
-        false,
-        state.maxLiquidityPerTick
-      );
-      toggledTop = TickManager.update(
-        state,
-        topTick,
-        cache.tick,
-        liquidityDelta,
-        0n,
-        0n,
-        true,
-        state.maxLiquidityPerTick
-      );
+    if (liquidityDelta !== 0n) {
+      const time = this._blockTimestamp(state);
+
+      if (
+        TickManager.update(
+          state,
+          bottomTick,
+          cache.tick,
+          liquidityDelta,
+          0n, // secondsPerLiquidityCumulative, play no role in pricing
+          0n, // tickCumulative, play no role in pricing
+          false, // isTopTick,
+          state.maxLiquidityPerTick,
+        )
+      ) {
+        toggledBottom = true;
+        TickTable.toggleTick(
+          networkId,
+          state,
+          bottomTick,
+          state.areTicksCompressed ? state.tickSpacing : undefined,
+        );
+      }
+      if (
+        TickManager.update(
+          state,
+          topTick,
+          cache.tick,
+          liquidityDelta,
+          0n, // secondsPerLiquidityCumulative, play no role in pricing
+          0n, // tickCumulative, play no role in pricing
+          true, // isTopTick
+          state.maxLiquidityPerTick,
+        )
+      ) {
+        toggledTop = true;
+        TickTable.toggleTick(
+          networkId,
+          state,
+          topTick,
+          state.areTicksCompressed ? state.tickSpacing : undefined,
+        );
+      }
     }
 
     // skip fee && position related stuffs
@@ -483,10 +505,9 @@ class AlgebraMathClass {
     // same as UniswapV3Pool.sol line 327 ->   if (params.liquidityDelta != 0) {
     if (liquidityDelta !== 0n) {
       // if liquidityDelta is negative and the tick was toggled, it means that it should not be initialized anymore, so we delete it
-      if (toggledBottom || toggledTop) {
-        TickManager._addOrRemoveTicks(state, bottomTick, topTick, toggledTop, toggledBottom, cache.tick, liquidityDelta < 0n);
-       /*  if (toggledBottom) Tick.clear(state, bottomTick);
-        if (toggledTop) Tick.clear(state, topTick); */
+      if (liquidityDelta < 0) {
+        if (toggledBottom) TickManager.clear(state, bottomTick);
+        if (toggledTop) TickManager.clear(state, topTick);
       }
       // same as UniswapV3Pool.sol line 331 ? -> amount0 = SqrtPriceMath.getAmount0Delta(
       // skip amount0 and amount1 as already read from event

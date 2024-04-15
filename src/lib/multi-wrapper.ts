@@ -68,9 +68,9 @@ export class MultiWrapper {
 		allCalls.map(batch => 
 			this.multi.methods
 				.tryAggregate(mandatory, batch)
-				.call({gas: 11000000}, blockNumber)
+				.call({gas: 10000000}, blockNumber)
       ),
-    );
+	);
 
     let globalInd = 0;
     const resultsUndecoded: MultiResult<string>[] = new Array(calls.length);

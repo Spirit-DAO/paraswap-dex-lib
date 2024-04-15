@@ -21,7 +21,6 @@ import { OUT_OF_RANGE_ERROR_POSTFIX } from '../uniswap-v3/constants';
 import { uint256ToBigInt } from '../../lib/decoders';
 import { MultiCallParams } from '../../lib/multi-wrapper';
 import { decodeStateMultiCallResultWithRelativeBitmaps } from './utils';
-import { AlgebraMath } from './lib/AlgebraMath';
 import {
   _reduceTickBitmap,
   _reduceTicks,
@@ -35,6 +34,7 @@ import {
   TICK_BITMAP_TO_USE_BY_CHAIN,
 } from './constants';
 import { TickMath } from '../uniswap-v3/contract-math/TickMath';
+import { AlgebraMath } from './lib/AlgebraMath';
 
 export class AlgebraEventPool extends StatefulEventSubscriber<PoolState> {
   handlers: {
@@ -144,7 +144,6 @@ export class AlgebraEventPool extends StatefulEventSubscriber<PoolState> {
             e instanceof Error &&
             e.message.endsWith(OUT_OF_RANGE_ERROR_POSTFIX)
           ) {
-            console.log('FRGGGGERERG', event.name);
             this.logger.warn(
               `${this.parentName}: Pool ${this.poolAddress} on ${
                 this.dexHelper.config.data.network
@@ -360,12 +359,10 @@ export class AlgebraEventPool extends StatefulEventSubscriber<PoolState> {
       await this._fetchInitStateMultiStrategies(blockNumber);
     console.log('generateState2');
     const ticks = {};
-    const tickTable = {};
-    const tickTreeSecondLayer = {};
+    const tickBitmap = {};
 
+    _reduceTickBitmap(tickBitmap, _state.tickBitmap);
     _reduceTicks(ticks, _state.ticks);
-    _reduceTickBitmap(tickTable, _state.tickTable);
-    _reduceTickBitmap(tickTreeSecondLayer, _state.tickTreeSecondLayer);
   
     console.log('generateState3', _state.globalState.lastFee);
     const globalState: PoolState['globalState'] = {
@@ -376,26 +373,25 @@ export class AlgebraEventPool extends StatefulEventSubscriber<PoolState> {
       communityFee: bigIntify(_state.globalState.communityFee),
       feeZto: bigIntify(_state.globalState.communityFee),
       feeOtz: bigIntify(_state.globalState.communityFee),
-    };
+	};
+
     const currentTick = globalState.tick;
+    const startTickBitmap = TickTable.position(BigInt(currentTick))[0];
 
     return {
       pool: _state.pool,
       blockTimestamp: bigIntify(_state.blockTimestamp),
       globalState,
       liquidity: bigIntify(_state.liquidity),
-      tickSpacing: bigIntify(_state.tickSpacing),
-      maxLiquidityPerTick: bigIntify(_state.maxLiquidityPerTick),
+      tickSpacing: 60n,
+	  maxLiquidityPerTick: bigIntify(_state.maxLiquidityPerTick),
+	  tickBitmap,
+	  startTickBitmap,
       ticks,
       isValid: true,
       balance0,
       balance1,
       areTicksCompressed: false,
-      tickTable,
-      tickTreeSecondLayer,
-      newTreeRoot: 0n,
-      prevTick: TickMath.MIN_TICK,
-      nextTick: TickMath.MAX_TICK,
     };
   }
 
@@ -504,10 +500,13 @@ export class AlgebraEventPool extends StatefulEventSubscriber<PoolState> {
     log: Log,
     blockHeader: BlockHeader,
   ) {
+	console.log("YOOOOOOO");
     const bottomTick = bigIntify(event.args.bottomTick);
     const topTick = bigIntify(event.args.topTick);
     const amount = bigIntify(event.args.liquidityAmount);
-    pool.blockTimestamp = bigIntify(blockHeader.timestamp);
+	  pool.blockTimestamp = bigIntify(blockHeader.timestamp);
+	  
+	  console.log("Fjebfuefn");
 
     AlgebraMath._updatePositionTicksAndFees(
       this.dexHelper.config.data.network,

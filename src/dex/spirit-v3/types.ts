@@ -27,18 +27,13 @@ export type PoolState = {
   globalState: GlobalState; // eq slot0
   liquidity: bigint;
   maxLiquidityPerTick: bigint;
-  //tickBitmap: Record<NumberAsString, bigint>; // actually called tickTable in contract-
-  ticks: Record<NumberAsString, TickInfo>; // although variable names are different in contracts but matches UniswapV3 TickInfo struct 1:1
-  tickTable: Record<NumberAsString, bigint>; // actually called ticks in contract
-  tickTreeSecondLayer: Record<NumberAsString, bigint>; // actually called tickTableSecondLayer in contract
-  isValid: boolean;
   startTickBitmap: bigint;
+  tickBitmap: Record<NumberAsString, bigint>; // actually called tickTable in contract-
+  ticks: Record<NumberAsString, TickInfo>; // although variable names are different in contracts but matches UniswapV3 TickInfo struct 1:1
+  isValid: boolean;
   balance0: bigint;
   balance1: bigint;
   areTicksCompressed: boolean;
-  prevTick: bigint;
-  nextTick: bigint;
-  newTreeRoot: bigint;
 };
 
 export interface StepComputations {
