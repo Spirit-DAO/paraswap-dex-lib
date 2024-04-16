@@ -37,7 +37,7 @@ async function fetchPoolStateFromContract(
 }
 // To make this test to pass, you need to increase till 1500
 describe('SpiritSwapV3 Event Edge Case', function () {
-  const poolAddress = '0x8a6bb521d5903ea2a617c38d1253dded79ac5def';
+  const poolAddress = '0x8a6bb521d5903EA2A617c38d1253dDED79AC5deF';
   const token0 = '0x21be370D5312f44cB42ce377BC9b8a0cEF1A4C83';
   const token1 = '0x5Cc61A78F164885776AA610fb0FE1257df78E59B';
   const dexKey = 'SpiritSwapV3';
@@ -45,9 +45,9 @@ describe('SpiritSwapV3 Event Edge Case', function () {
   const config = AlgebraConfig[dexKey][network];
 
   const blockNumbers: { [eventName: string]: number[] } = {
-	  //['Mint']: [78684743, 78690288],
-	  ['Burn']: [78696246],
-	  //['Collect']: [78689305],
+	  ['Mint']: [79168449, 79447603,79447634, 79447763],
+	  ['Burn']: [79211828],
+	  ['Collect']: [79212090],
   };
 
   describe('AlgebraEventPool', function () {
@@ -100,29 +100,14 @@ describe('SpiritSwapV3 Event Edge Case', function () {
 });
 
 describe('Algebra Event', function () {
-	const poolAddress = '0x8a6bb521d5903ea2a617c38d1253dded79ac5def';
+	const poolAddress = '0x8a6bb521d5903EA2A617c38d1253dDED79AC5deF';
 	const token0 = '0x21be370D5312f44cB42ce377BC9b8a0cEF1A4C83';
 	const token1 = '0x5Cc61A78F164885776AA610fb0FE1257df78E59B';
 
   const blockNumbers: { [eventName: string]: number[] } = {
-    // topic0 - 0x598b9f043c813aa6be3426ca60d1c65d17256312890be5118dab55b0775ebe2a
-    ['Fee']: [
-    ],
-    //['Mint']: [78684743,78690288],
-    // topic0 - 0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67
-    /* ['Swap']: [
-      25067615,
-      25067636
-    ], */
-    // topic0 - 0x7a53080ba414158be7ec69b987b5fb7d07dee101fe85488f0853ae16239d0bde
-    // topic0 - 0x0c396cd989a39f4459b5fa1aed6a9a8dcdbc45908acfd67e028cd568da98982c
-    ['Burn']: [78696246],
-    // topic0 - 0xbdbdb71d7860376ba52b25a5028beea23581364a40522f6bcfb86bb1f2dca633
-    ['Flash']: [],
-    // topic0 - 0x70935338e69775456a85ddef226c395fb668b63fa0115f5f20610b388e6ca9c0
-    //['Collect']: [78689305],
-    // topic0 - 0x9e22b964b08e25c3aaa72102bb0071c089258fb82d51271a8ddf5c24921356ee
-    ['CommunityFee']: [],
+	['Mint']: [79168449, 79447603,79447634, 79447763],
+	['Burn']: [79211828],
+	['Collect']: [79212090],
   };
 
   describe('AlgebraEventPool', function () {

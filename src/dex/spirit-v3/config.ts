@@ -7,10 +7,10 @@ export const AlgebraConfig: DexConfigMap<DexParams> = {
     [Network.FANTOM]: {
       factory: '0xb860200BD68dc39cEAfd6ebb82883f189f4CdA76',
       quoter: '0x0b1019859C10FC7018081f29580724455Fe9FeE0',
-      router: '0x2e6b9c8D4a0972F87f21437A3AC7E4a1810f5438',
+      router: '0x114b8291bE7724c6b363809F91c03903b8c48E0D',
       deployer: '0x98AF00a67F5cC0b362Da34283D7d32817F6c9A29',
       algebraStateMulticall: '0x1742e72F2e08827F73F3ce98d6c5D72BfC62C5aD',
-      uniswapMulticall: '0x737EAd42CE0859C1CB056d162D1DE6dEBB41b4A6',
+      uniswapMulticall: '0x1888A7b2272b1dF4C7dFbc95C60c86C9623A404a',
       chunksCount: 10,
       forceRPC: true,
       initRetryFrequency: 10,
