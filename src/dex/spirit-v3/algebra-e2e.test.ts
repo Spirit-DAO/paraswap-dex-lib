@@ -210,8 +210,8 @@ describe('SpiritSwap', () => {
     }); */
 
     describe('Fantom: Non-Tax tokens', () => {
-      const tokenASymbol: string = 'axlUSDC';
-      const tokenBSymbol: string = 'lzUSDC';
+      const tokenASymbol: string = 'USDCe';
+      const tokenBSymbol: string = 'AXLUSDC';
 
       const tokenAAmount: string = '1000000000';
       const tokenBAmount: string = '1000000000';

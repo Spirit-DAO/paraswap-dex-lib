@@ -45,7 +45,7 @@ describe('SpiritSwapV3 Event Edge Case', function () {
   const config = AlgebraConfig[dexKey][network];
 
   const blockNumbers: { [eventName: string]: number[] } = {
-	  ['Mint']: [79168449, 79447603,79447634, 79447763],
+	  ['Mint']: [78975808, 78975944, 79084917, 79168449],
 	  ['Burn']: [79211828],
 	  ['Collect']: [79212090],
   };
@@ -105,7 +105,7 @@ describe('Algebra Event', function () {
 	const token1 = '0x5Cc61A78F164885776AA610fb0FE1257df78E59B';
 
   const blockNumbers: { [eventName: string]: number[] } = {
-	['Mint']: [79168449, 79447603,79447634, 79447763],
+	['Mint']: [78975808, 78975944, 79084917, 79168449],
 	['Burn']: [79211828],
 	['Collect']: [79212090],
   };

@@ -22,8 +22,7 @@ import { uint256ToBigInt } from '../../lib/decoders';
 import { MultiCallParams } from '../../lib/multi-wrapper';
 import { decodeStateMultiCallResultWithRelativeBitmaps } from './utils';
 import {
-  _reduceTickBitmap,
-  _reduceTicks,
+  _reduceTickBitmap
 } from '../uniswap-v3/contract-math/utils';
 import { Network } from '../../constants';
 import { TickTable } from './lib/TickTable';
@@ -34,7 +33,7 @@ import {
   TICK_BITMAP_TO_USE_BY_CHAIN,
 } from './constants';
 import { TickMath } from '../uniswap-v3/contract-math/TickMath';
-import { AlgebraMath } from './lib/AlgebraMath';
+import { AlgebraMath, _reduceTicks } from './lib/AlgebraMath';
 
 export class AlgebraEventPool extends StatefulEventSubscriber<PoolState> {
   handlers: {

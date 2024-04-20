@@ -6,7 +6,7 @@ import { Tick } from '../../uniswap-v3/contract-math/Tick';
 import { SqrtPriceMath } from '../../uniswap-v3/contract-math/SqrtPriceMath';
 import { TickMath } from '../../uniswap-v3/contract-math/TickMath';
 import { LiquidityMath } from '../../uniswap-v3/contract-math/LiquidityMath';
-import { _require, int256, uint32 } from '../../../utils';
+import { _require, bigIntify, int256, uint32 } from '../../../utils';
 import { Constants } from './Constants';
 import { BI_MAX_INT } from '../../../bigint-constants';
 import { TickInfo } from '..//types';
@@ -729,5 +729,22 @@ class AlgebraMathClass {
     return uint32(state.blockTimestamp);
   }
 }
+
+export function _reduceTicks(
+    ticks: Record<NumberAsString, TickInfo>,
+    ticksToReduce: any[],
+  ) {
+    return ticksToReduce.reduce<Record<string, any>>((acc, curr) => {
+      const { index, value } = curr;
+        acc[index] = {
+          liquidityTotal: bigIntify(value.liquidityTotal),
+          liquidityDelta: bigIntify(value.liquidityDelta),
+          nextTick: bigIntify(value.nextTick),
+          prevTick: bigIntify(value.prevTick)
+        };
+      return acc;
+    }, ticks);
+  }
+  
 
 export const AlgebraMath = new AlgebraMathClass();

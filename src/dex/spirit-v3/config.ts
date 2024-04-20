@@ -16,7 +16,7 @@ export const AlgebraConfig: DexConfigMap<DexParams> = {
       initRetryFrequency: 10,
       initHash: `0xf96d2474815c32e070cd63233f06af5413efc5dcb430aee4ff18cc29007c562d`,
       subgraphURL:
-        'https://api.studio.thegraph.com/query/62790/spiritv3-subgraph/version/latest',
+        'https://gateway-arbitrum.network.thegraph.com/api/faf32119514c16725e3d69d66605eb18/subgraphs/id/7JUqCmaPuCcppoeV2JSwANXuiiBTDn8aQEaFZhcB5vt',
     },
 	[Network.FANTOM_TEST]: {
 		factory: '0x1Dc3f68E5D202EE465E3893dCB719D1321bf06f4',
